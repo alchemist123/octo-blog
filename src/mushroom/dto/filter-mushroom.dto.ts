@@ -1,4 +1,11 @@
-import { IsOptional, IsString, IsIn, IsUUID, ValidateIf, IsNotEmpty } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsIn,
+  IsUUID,
+  ValidateIf,
+  IsNotEmpty,
+} from 'class-validator';
 
 export class FilterMushroomDto {
   @IsOptional()
@@ -23,4 +30,3 @@ export class FilterMushroomDto {
   @IsString()
   search?: string;
 }
-

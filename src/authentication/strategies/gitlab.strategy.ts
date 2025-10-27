@@ -9,7 +9,9 @@ export class GitLabStrategy extends PassportStrategy(Strategy, 'gitlab') {
     super({
       clientID: process.env.GITLAB_CLIENT_ID || 'dummy-client-id',
       clientSecret: process.env.GITLAB_CLIENT_SECRET || 'dummy-client-secret',
-      callbackURL: process.env.GITLAB_CALLBACK_URL || 'http://localhost:3000/auth/gitlab/callback',
+      callbackURL:
+        process.env.GITLAB_CALLBACK_URL ||
+        'http://localhost:3000/auth/gitlab/callback',
       scope: 'read_user',
       baseURL: process.env.GITLAB_BASE_URL || 'https://gitlab.com',
     } as any);
@@ -34,4 +36,3 @@ export class GitLabStrategy extends PassportStrategy(Strategy, 'gitlab') {
     done(null, user);
   }
 }
-

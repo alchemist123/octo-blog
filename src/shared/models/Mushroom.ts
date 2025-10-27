@@ -59,4 +59,3 @@ export class Mushroom extends Model<Mushroom> {
   @Column(DataType.DATE)
   declare updatedAt: Date;
 }
-

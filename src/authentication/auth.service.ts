@@ -1,9 +1,9 @@
-import { 
-  Injectable, 
-  UnauthorizedException, 
+import {
+  Injectable,
+  UnauthorizedException,
   ConflictException,
   HttpException,
-  HttpStatus
+  HttpStatus,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { JwtService } from '@nestjs/jwt';
@@ -29,7 +29,9 @@ export class AuthService {
     }
 
     // Check if username is taken
-    const existingUsername = await this.userService.findByUsername(body.userName);
+    const existingUsername = await this.userService.findByUsername(
+      body.userName,
+    );
 
     if (existingUsername) {
       throw new ConflictException('Username is already taken');
@@ -74,7 +76,9 @@ export class AuthService {
 
     // Check if user has a password (OAuth users might not)
     if (!userPassword) {
-      throw new UnauthorizedException('Please sign in with your social account');
+      throw new UnauthorizedException(
+        'Please sign in with your social account',
+      );
     }
 
     // Verify password
@@ -102,7 +106,8 @@ export class AuthService {
   }
 
   async handleOAuthLogin(profile: any): Promise<any> {
-    const { providerId, email, name, dp_url, userName, provider, bio } = profile;
+    const { providerId, email, name, dp_url, userName, provider, bio } =
+      profile;
 
     // Check if user already exists with this provider
     let user = await this.userService.findByProvider(provider, providerId);
@@ -122,7 +127,11 @@ export class AuthService {
 
     if (existingUser) {
       // Link OAuth account to existing user
-      await this.userService.updateProvider(existingUser.id, provider, providerId);
+      await this.userService.updateProvider(
+        existingUser.id,
+        provider,
+        providerId,
+      );
       existingUser.provider = provider;
       existingUser.providerId = providerId;
 

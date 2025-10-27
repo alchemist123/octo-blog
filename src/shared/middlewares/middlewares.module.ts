@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { errorHandler } from './error-handler'
-import { PaginationMiddleware } from './pagination.middleware'
+import { errorHandler } from './error-handler';
+import { PaginationMiddleware } from './pagination.middleware';
 
 @Module({
   providers: [errorHandler, PaginationMiddleware],

@@ -1,4 +1,15 @@
-import { Controller, Get, Query, HttpStatus, HttpException, Post, Delete, Body, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  HttpStatus,
+  HttpException,
+  Post,
+  Delete,
+  Body,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { CheckExistDto } from './dto/check-exist.dto';
 import { AddInterestDto } from './dto/add-interest.dto';
@@ -10,11 +21,13 @@ export class UserController {
 
   @Get()
   getUser(): string {
-    return "hello world";
+    return 'hello world';
   }
 
   @Get('check-exist')
-  async checkExist(@Query() query: CheckExistDto): Promise<{ exists: boolean }> {
+  async checkExist(
+    @Query() query: CheckExistDto,
+  ): Promise<{ exists: boolean }> {
     const { type, value } = query;
 
     try {
@@ -25,13 +38,18 @@ export class UserController {
       } else if (type === 'username') {
         exists = await this.userService.checkUsernameExist(value);
       } else {
-        throw new HttpException('Invalid type. Must be "email" or "username"', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Invalid type. Must be "email" or "username"',
+          HttpStatus.BAD_REQUEST,
+        );
       }
-      
 
       return { exists };
     } catch (error) {
-      throw new HttpException('Error checking existence', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Error checking existence',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -39,14 +57,14 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async addInterest(
     @Req() request: any,
-    @Body() addInterestDto: AddInterestDto
+    @Body() addInterestDto: AddInterestDto,
   ): Promise<{ message: string; interests: string[] }> {
     const user = request.user;
     await this.userService.addInterest(user.id, addInterestDto.interest);
     const updatedInterests = await this.userService.getUserInterests(user.id);
-    return { 
+    return {
       message: 'Interest added successfully',
-      interests: updatedInterests 
+      interests: updatedInterests,
     };
   }
 
@@ -54,14 +72,14 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async removeInterest(
     @Req() request: any,
-    @Body() addInterestDto: AddInterestDto
+    @Body() addInterestDto: AddInterestDto,
   ): Promise<{ message: string; interests: string[] }> {
     const user = request.user;
     await this.userService.removeInterest(user.id, addInterestDto.interest);
     const updatedInterests = await this.userService.getUserInterests(user.id);
-    return { 
+    return {
       message: 'Interest removed successfully',
-      interests: updatedInterests 
+      interests: updatedInterests,
     };
   }
 
@@ -72,5 +90,4 @@ export class UserController {
     const interests = await this.userService.getUserInterests(user.id);
     return { interests };
   }
-
 }

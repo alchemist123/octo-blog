@@ -50,4 +50,3 @@ export class Subscriber extends Model<Subscriber> {
   @Column(DataType.DATE)
   declare updatedAt: Date;
 }
-

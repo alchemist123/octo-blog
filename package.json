@@ -2,7 +2,7 @@
   "name": "tpd-backend",
   "version": "0.0.1",
   "description": "",
-  "author": "",
+  "author": "amal v s, octopus Inc.",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
@@ -56,7 +56,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sequelize-typescript": "^2.1.6",
-    "uuid": "^13.0.0"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

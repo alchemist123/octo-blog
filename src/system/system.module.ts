@@ -12,4 +12,3 @@ import { Topic } from '../shared/models/Topic';
   exports: [SystemService],
 })
 export class SystemModule {}
-

@@ -11,8 +11,10 @@ import { FilterMushroomDto } from './dto/filter-mushroom.dto';
 export class MushroomService {
   constructor(
     @InjectModel(Mushroom) private readonly mushroomModel: typeof Mushroom,
-    @InjectModel(Subscriber) private readonly subscriberModel: typeof Subscriber,
-    @InjectModel(MushroomAdmin) private readonly mushroomAdminModel: typeof MushroomAdmin,
+    @InjectModel(Subscriber)
+    private readonly subscriberModel: typeof Subscriber,
+    @InjectModel(MushroomAdmin)
+    private readonly mushroomAdminModel: typeof MushroomAdmin,
     @InjectModel(User) private readonly userModel: typeof User,
   ) {}
 
@@ -28,14 +30,14 @@ export class MushroomService {
     userId: string;
   }): Promise<Mushroom> {
     const mushroom = await this.mushroomModel.create(mushroomData as any);
-    
-    // Add the creator as an admin (they're already an admin by being userId, 
+
+    // Add the creator as an admin (they're already an admin by being userId,
     // but we'll also add them to the admins table for consistency)
     await this.mushroomAdminModel.create({
       userId: mushroomData.userId,
       mushroomId: mushroom.id,
     } as any);
-    
+
     return mushroom;
   }
 
@@ -120,7 +122,10 @@ export class MushroomService {
     });
 
     if (existingSubscription) {
-      throw new HttpException('User is already subscribed to this mushroom', HttpStatus.CONFLICT);
+      throw new HttpException(
+        'User is already subscribed to this mushroom',
+        HttpStatus.CONFLICT,
+      );
     }
 
     // Determine status based on mushroom status
@@ -139,7 +144,7 @@ export class MushroomService {
     if (status === 'joined') {
       await this.mushroomModel.update(
         { subscribers: mushroom.subscribers + 1 },
-        { where: { id: mushroomId } }
+        { where: { id: mushroomId } },
       );
     }
 
@@ -160,7 +165,7 @@ export class MushroomService {
 
     // Get mushroom to update count
     const mushroom = await this.mushroomModel.findByPk(mushroomId);
-    
+
     await subscriber.destroy();
 
     // Decrease subscriber count if status was 'joined'
@@ -168,7 +173,7 @@ export class MushroomService {
       const newCount = Math.max(0, mushroom.subscribers - 1);
       await this.mushroomModel.update(
         { subscribers: newCount },
-        { where: { id: mushroomId } }
+        { where: { id: mushroomId } },
       );
     }
   }
@@ -194,7 +199,10 @@ export class MushroomService {
   /**
    * Add admin to a mushroom
    */
-  async addAdmin(mushroomId: string, newAdminUserId: string): Promise<MushroomAdmin> {
+  async addAdmin(
+    mushroomId: string,
+    newAdminUserId: string,
+  ): Promise<MushroomAdmin> {
     // Check if mushroom exists
     const mushroom = await this.mushroomModel.findByPk(mushroomId);
     if (!mushroom) {
@@ -204,7 +212,10 @@ export class MushroomService {
     // Check if already an admin (either creator or in admins table)
     const isAlreadyAdmin = await this.isAdmin(mushroomId, newAdminUserId);
     if (isAlreadyAdmin) {
-      throw new HttpException('User is already an admin of this mushroom', HttpStatus.CONFLICT);
+      throw new HttpException(
+        'User is already an admin of this mushroom',
+        HttpStatus.CONFLICT,
+      );
     }
 
     // Check if admin entry already exists
@@ -228,7 +239,11 @@ export class MushroomService {
   /**
    * Get all admins of a mushroom
    */
-  async getAdmins(mushroomId: string, limit: number, offset: number): Promise<{ admins: any[]; total: number }> {
+  async getAdmins(
+    mushroomId: string,
+    limit: number,
+    offset: number,
+  ): Promise<{ admins: any[]; total: number }> {
     const mushroom = await this.mushroomModel.findByPk(mushroomId);
     if (!mushroom) {
       throw new HttpException('Mushroom not found', HttpStatus.NOT_FOUND);
@@ -237,15 +252,18 @@ export class MushroomService {
     const adminEntries = await this.mushroomAdminModel.findAll({
       where: { mushroomId },
     });
-    
+
     // Get all admin user IDs
-    const adminUserIds = [mushroom.userId, ...adminEntries.map(a => a.userId)];
-    
+    const adminUserIds = [
+      mushroom.userId,
+      ...adminEntries.map((a) => a.userId),
+    ];
+
     // Get total count
     const total = await this.userModel.count({
       where: { id: adminUserIds },
     });
-    
+
     // Get paginated admin users with their details
     const adminUsers = await this.userModel.findAll({
       where: { id: adminUserIds },
@@ -261,7 +279,11 @@ export class MushroomService {
   /**
    * Get pending subscribers for a mushroom
    */
-  async getPendingSubscribers(mushroomId: string, limit: number, offset: number): Promise<{ subscribers: any[]; total: number }> {
+  async getPendingSubscribers(
+    mushroomId: string,
+    limit: number,
+    offset: number,
+  ): Promise<{ subscribers: any[]; total: number }> {
     const mushroom = await this.mushroomModel.findByPk(mushroomId);
     if (!mushroom) {
       throw new HttpException('Mushroom not found', HttpStatus.NOT_FOUND);
@@ -281,15 +303,15 @@ export class MushroomService {
     });
 
     // Get user details for each pending subscriber
-    const userIds = pendingSubscribers.map(s => s.userId);
+    const userIds = pendingSubscribers.map((s) => s.userId);
     const users = await this.userModel.findAll({
       where: { id: userIds },
       attributes: ['id', 'name', 'dp_url', 'bio', 'createdAt'],
     });
 
     // Combine subscriber info with user details
-    const subscribers = pendingSubscribers.map(subscriber => {
-      const user = users.find(u => u.id === subscriber.userId);
+    const subscribers = pendingSubscribers.map((subscriber) => {
+      const user = users.find((u) => u.id === subscriber.userId);
       return {
         id: subscriber.id,
         userId: subscriber.userId,
@@ -306,7 +328,11 @@ export class MushroomService {
   /**
    * Get joined subscribers for a mushroom
    */
-  async getJoinedSubscribers(mushroomId: string, limit: number, offset: number): Promise<{ subscribers: any[]; total: number }> {
+  async getJoinedSubscribers(
+    mushroomId: string,
+    limit: number,
+    offset: number,
+  ): Promise<{ subscribers: any[]; total: number }> {
     const mushroom = await this.mushroomModel.findByPk(mushroomId);
     if (!mushroom) {
       throw new HttpException('Mushroom not found', HttpStatus.NOT_FOUND);
@@ -326,15 +352,15 @@ export class MushroomService {
     });
 
     // Get user details for each joined subscriber
-    const userIds = joinedSubscribers.map(s => s.userId);
+    const userIds = joinedSubscribers.map((s) => s.userId);
     const users = await this.userModel.findAll({
       where: { id: userIds },
       attributes: ['id', 'name', 'dp_url', 'bio', 'createdAt'],
     });
 
     // Combine subscriber info with user details
-    const subscribers = joinedSubscribers.map(subscriber => {
-      const user = users.find(u => u.id === subscriber.userId);
+    const subscribers = joinedSubscribers.map((subscriber) => {
+      const user = users.find((u) => u.id === subscriber.userId);
       return {
         id: subscriber.id,
         userId: subscriber.userId,
@@ -351,7 +377,10 @@ export class MushroomService {
   /**
    * Approve pending subscription (change from pending to joined)
    */
-  async approveSubscription(mushroomId: string, subscriberId: string): Promise<Subscriber> {
+  async approveSubscription(
+    mushroomId: string,
+    subscriberId: string,
+  ): Promise<Subscriber> {
     const subscriber = await this.subscriberModel.findOne({
       where: { id: subscriberId, mushroomId },
     });
@@ -361,7 +390,10 @@ export class MushroomService {
     }
 
     if (subscriber.status !== 'pending') {
-      throw new HttpException('Only pending subscriptions can be approved', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'Only pending subscriptions can be approved',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     // Update status to joined
@@ -372,7 +404,7 @@ export class MushroomService {
     if (mushroom) {
       await this.mushroomModel.update(
         { subscribers: mushroom.subscribers + 1 },
-        { where: { id: mushroomId } }
+        { where: { id: mushroomId } },
       );
     }
 
@@ -382,7 +414,10 @@ export class MushroomService {
   /**
    * Reject pending subscription (delete it)
    */
-  async rejectSubscription(mushroomId: string, subscriberId: string): Promise<void> {
+  async rejectSubscription(
+    mushroomId: string,
+    subscriberId: string,
+  ): Promise<void> {
     const subscriber = await this.subscriberModel.findOne({
       where: { id: subscriberId, mushroomId },
     });
@@ -392,10 +427,12 @@ export class MushroomService {
     }
 
     if (subscriber.status !== 'pending') {
-      throw new HttpException('Only pending subscriptions can be rejected', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'Only pending subscriptions can be rejected',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     await subscriber.destroy();
   }
 }
-

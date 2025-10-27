@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsString, IsIn, IsOptional, IsUrl, IsNumber } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsIn,
+  IsOptional,
+  IsUrl,
+  IsNumber,
+} from 'class-validator';
 
 export class CreateMushroomDto {
   @IsNotEmpty()

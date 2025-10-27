@@ -4,7 +4,11 @@ import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class FileUploadService {
-  async uploadFile(dataBuffer: Buffer, fileName: string, folder: 'dp' | 'blog-image') {
+  async uploadFile(
+    dataBuffer: Buffer,
+    fileName: string,
+    folder: 'dp' | 'blog-image',
+  ) {
     const bucketName = process.env.AWS_S3_BUCKET;
     if (!bucketName) {
       throw new Error('AWS_S3_BUCKET environment variable is not set');
@@ -28,7 +32,6 @@ export class FileUploadService {
       })
       .promise();
 
-      
     const fileStorageInDB = {
       fileName: fileName,
       fileUrl: uploadResult.Location,

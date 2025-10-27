@@ -1,4 +1,11 @@
-import { IsEmail, IsNotEmpty, IsString, IsUrl, IsOptional, IsArray } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  IsUrl,
+  IsOptional,
+  IsArray,
+} from 'class-validator';
 
 export class signupDto {
   @IsNotEmpty()

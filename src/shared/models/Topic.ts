@@ -39,4 +39,3 @@ export class Topic extends Model<Topic> {
   @Column(DataType.DATE)
   declare updatedAt: Date;
 }
-

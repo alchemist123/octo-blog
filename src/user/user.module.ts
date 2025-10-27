@@ -9,7 +9,7 @@ import { GatekeeperModule } from '../gatekeeper/gatekeeper.module';
   imports: [
     SequelizeModule.forFeature([User]),
     MiddlewaresModule,
-    GatekeeperModule
+    GatekeeperModule,
   ],
   controllers: [UserController],
   providers: [UserService],

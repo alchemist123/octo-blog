@@ -5,4 +5,3 @@ export class AddAdminDto {
   @IsUUID()
   userId: string;
 }
-

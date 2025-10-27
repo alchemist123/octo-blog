@@ -12,11 +12,12 @@ import { MushroomModule } from './mushroom/mushroom.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true, 
-      envFilePath: '.env', 
+      isGlobal: true,
+      envFilePath: '.env',
     }),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'default-secret-key-change-in-production',
+      secret:
+        process.env.JWT_SECRET || 'default-secret-key-change-in-production',
       signOptions: { expiresIn: '24h' },
     }),
     ScheduleModule.forRoot(),
@@ -26,6 +27,5 @@ import { MushroomModule } from './mushroom/mushroom.module';
     SystemModule,
     MushroomModule,
   ],
-
 })
 export class AppModule {}

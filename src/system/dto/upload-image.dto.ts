@@ -7,4 +7,3 @@ export class UploadImageDto {
   })
   type: 'dp' | 'blog-image';
 }
-

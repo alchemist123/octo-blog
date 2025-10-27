@@ -3,4 +3,3 @@ import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
 export class GitLabAuthGuard extends AuthGuard('gitlab') {}
-

@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, HttpStatus, HttpException, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  HttpStatus,
+  HttpException,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { MushroomService } from './mushroom.service';
 import { CreateMushroomDto } from './dto/create-mushroom.dto';
 import { UpdateMushroomDto } from './dto/update-mushroom.dto';
@@ -12,7 +25,9 @@ export class MushroomController {
 
   @Get('')
   @UseGuards(JwtAuthGuard)
-  async getAll(@Query() filter: FilterMushroomDto): Promise<{ mushrooms: any[] }> {
+  async getAll(
+    @Query() filter: FilterMushroomDto,
+  ): Promise<{ mushrooms: any[] }> {
     const mushrooms = await this.mushroomService.findAll(filter);
     return { mushrooms };
   }
@@ -29,7 +44,10 @@ export class MushroomController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  async create(@Body() mushroomData: CreateMushroomDto, @Req() request: any): Promise<{ mushroom: any }> {
+  async create(
+    @Body() mushroomData: CreateMushroomDto,
+    @Req() request: any,
+  ): Promise<{ mushroom: any }> {
     const user = request.user;
     const mushroom = await this.mushroomService.create({
       ...mushroomData,
@@ -40,38 +58,51 @@ export class MushroomController {
 
   @Put(':id')
   @UseGuards(JwtAuthGuard)
-  async update(@Param('id') id: string, @Body() updates: UpdateMushroomDto, @Req() request: any): Promise<{ mushroom: any }> {
+  async update(
+    @Param('id') id: string,
+    @Body() updates: UpdateMushroomDto,
+    @Req() request: any,
+  ): Promise<{ mushroom: any }> {
     const user = request.user;
-    
+
     // Check if user owns the mushroom
     const mushroom = await this.mushroomService.findById(id);
     if (!mushroom) {
       throw new HttpException('Mushroom not found', HttpStatus.NOT_FOUND);
     }
-    
+
     if (mushroom.userId !== user.id) {
-      throw new HttpException('Forbidden: You can only update your own mushrooms', HttpStatus.FORBIDDEN);
+      throw new HttpException(
+        'Forbidden: You can only update your own mushrooms',
+        HttpStatus.FORBIDDEN,
+      );
     }
-    
+
     const updatedMushroom = await this.mushroomService.update(id, updates);
     return { mushroom: updatedMushroom };
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  async delete(@Param('id') id: string, @Req() request: any): Promise<{ message: string }> {
+  async delete(
+    @Param('id') id: string,
+    @Req() request: any,
+  ): Promise<{ message: string }> {
     const user = request.user;
-    
+
     // Check if user owns the mushroom
     const mushroom = await this.mushroomService.findById(id);
     if (!mushroom) {
       throw new HttpException('Mushroom not found', HttpStatus.NOT_FOUND);
     }
-    
+
     if (mushroom.userId !== user.id) {
-      throw new HttpException('Forbidden: You can only delete your own mushrooms', HttpStatus.FORBIDDEN);
+      throw new HttpException(
+        'Forbidden: You can only delete your own mushrooms',
+        HttpStatus.FORBIDDEN,
+      );
     }
-    
+
     await this.mushroomService.delete(id);
     return { message: 'Mushroom deleted successfully' };
   }
@@ -83,12 +114,13 @@ export class MushroomController {
     @Req() request: any,
   ): Promise<{ message: string; subscriber: any }> {
     const user = request.user;
-    
+
     const subscriber = await this.mushroomService.subscribe(id, user.id);
-    return { 
-      message: subscriber.status === 'pending' 
-        ? 'Subscription request sent and awaiting approval'
-        : 'Successfully subscribed to mushroom',
+    return {
+      message:
+        subscriber.status === 'pending'
+          ? 'Subscription request sent and awaiting approval'
+          : 'Successfully subscribed to mushroom',
       subscriber,
     };
   }
@@ -100,7 +132,7 @@ export class MushroomController {
     @Req() request: any,
   ): Promise<{ message: string }> {
     const user = request.user;
-    
+
     await this.mushroomService.unsubscribe(id, user.id);
     return { message: 'Successfully unsubscribed from mushroom' };
   }
@@ -113,15 +145,18 @@ export class MushroomController {
     @Req() request: any,
   ): Promise<{ message: string; admin: any }> {
     const user = request.user;
-    
+
     // Check if user is admin of this mushroom
     const isAdmin = await this.mushroomService.isAdmin(id, user.id);
     if (!isAdmin) {
-      throw new HttpException('Forbidden: Only admins can add other admins', HttpStatus.FORBIDDEN);
+      throw new HttpException(
+        'Forbidden: Only admins can add other admins',
+        HttpStatus.FORBIDDEN,
+      );
     }
-    
+
     const admin = await this.mushroomService.addAdmin(id, addAdminData.userId);
-    return { 
+    return {
       message: 'Successfully added admin to mushroom',
       admin,
     };
@@ -133,11 +168,20 @@ export class MushroomController {
     @Param('id') id: string,
     @Req() request: any,
   ): Promise<{ admins: any[]; total: number; page: number; size: number }> {
-    const pagination = request.pagination || { page: 1, size: 10, limit: 10, offset: 0 };
+    const pagination = request.pagination || {
+      page: 1,
+      size: 10,
+      limit: 10,
+      offset: 0,
+    };
     const { limit, offset, page, size } = pagination;
-    
-    const { admins, total } = await this.mushroomService.getAdmins(id, limit, offset);
-    return { 
+
+    const { admins, total } = await this.mushroomService.getAdmins(
+      id,
+      limit,
+      offset,
+    );
+    return {
       admins,
       total,
       page,
@@ -150,18 +194,27 @@ export class MushroomController {
   async getPendingSubscribers(
     @Param('id') id: string,
     @Req() request: any,
-  ): Promise<{ pendingSubscribers: any[]; total: number; page: number; size: number }> {
+  ): Promise<{
+    pendingSubscribers: any[];
+    total: number;
+    page: number;
+    size: number;
+  }> {
     const user = request.user;
-    const pagination = request.pagination ;
+    const pagination = request.pagination;
     const { limit, offset, page, size } = pagination;
 
     const isAdmin = await this.mushroomService.isAdmin(id, user.id);
     if (!isAdmin) {
-      throw new HttpException('Forbidden: Only admins can view pending subscribers', HttpStatus.FORBIDDEN);
+      throw new HttpException(
+        'Forbidden: Only admins can view pending subscribers',
+        HttpStatus.FORBIDDEN,
+      );
     }
-    
-    const { subscribers, total } = await this.mushroomService.getPendingSubscribers(id, limit, offset);
-    return { 
+
+    const { subscribers, total } =
+      await this.mushroomService.getPendingSubscribers(id, limit, offset);
+    return {
       pendingSubscribers: subscribers,
       total,
       page,
@@ -177,15 +230,21 @@ export class MushroomController {
     @Req() request: any,
   ): Promise<{ message: string; subscriber: any }> {
     const user = request.user;
-    
+
     // Check if user is admin
     const isAdmin = await this.mushroomService.isAdmin(id, user.id);
     if (!isAdmin) {
-      throw new HttpException('Forbidden: Only admins can approve subscribers', HttpStatus.FORBIDDEN);
+      throw new HttpException(
+        'Forbidden: Only admins can approve subscribers',
+        HttpStatus.FORBIDDEN,
+      );
     }
-    
-    const subscriber = await this.mushroomService.approveSubscription(id, subscriberId);
-    return { 
+
+    const subscriber = await this.mushroomService.approveSubscription(
+      id,
+      subscriberId,
+    );
+    return {
       message: 'Subscription approved successfully',
       subscriber,
     };
@@ -199,13 +258,16 @@ export class MushroomController {
     @Req() request: any,
   ): Promise<{ message: string }> {
     const user = request.user;
-    
+
     // Check if user is admin
     const isAdmin = await this.mushroomService.isAdmin(id, user.id);
     if (!isAdmin) {
-      throw new HttpException('Forbidden: Only admins can reject subscribers', HttpStatus.FORBIDDEN);
+      throw new HttpException(
+        'Forbidden: Only admins can reject subscribers',
+        HttpStatus.FORBIDDEN,
+      );
     }
-    
+
     await this.mushroomService.rejectSubscription(id, subscriberId);
     return { message: 'Subscription rejected successfully' };
   }
@@ -214,12 +276,23 @@ export class MushroomController {
   async getJoinedSubscribers(
     @Param('id') id: string,
     @Req() request: any,
-  ): Promise<{ joinedSubscribers: any[]; total: number; page: number; size: number }> {
-    const pagination = request.pagination || { page: 1, size: 10, limit: 10, offset: 0 };
+  ): Promise<{
+    joinedSubscribers: any[];
+    total: number;
+    page: number;
+    size: number;
+  }> {
+    const pagination = request.pagination || {
+      page: 1,
+      size: 10,
+      limit: 10,
+      offset: 0,
+    };
     const { limit, offset, page, size } = pagination;
-    
-    const { subscribers, total } = await this.mushroomService.getJoinedSubscribers(id, limit, offset);
-    return { 
+
+    const { subscribers, total } =
+      await this.mushroomService.getJoinedSubscribers(id, limit, offset);
+    return {
       joinedSubscribers: subscribers,
       total,
       page,
@@ -227,4 +300,3 @@ export class MushroomController {
     };
   }
 }
-

@@ -1,4 +1,12 @@
-import { Body, Controller, Post, Get, Res, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Get,
+  Res,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { signupDto, loginDto } from './dto/sign';
 import { errorHandler } from '../shared/middlewares/error-handler';
@@ -10,20 +18,17 @@ import { GitLabAuthGuard } from './guards/gitlab.guard';
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly errorHandler: errorHandler
+    private readonly errorHandler: errorHandler,
   ) {}
 
   @Post('/signup')
   async registerUser(@Body() body: signupDto, @Res() res: any) {
     try {
       const result = await this.authService.registerUser(body);
-      return res
-        .status(201)
-        .setHeader('x-access-token', result.token)
-        .json({ 
-          message: 'User registered successfully', 
-          user: result.user 
-        });
+      return res.status(201).setHeader('x-access-token', result.token).json({
+        message: 'User registered successfully',
+        user: result.user,
+      });
     } catch (error) {
       return this.errorHandler.handle(res, error);
     }
@@ -33,12 +38,10 @@ export class AuthController {
   async login(@Body() body: loginDto, @Res() res: any) {
     try {
       const result = await this.authService.login(body);
-      return res
-        .setHeader('x-access-token', result.token)
-        .json({ 
-          message: 'Login successful',
-          user: result.user 
-        });
+      return res.setHeader('x-access-token', result.token).json({
+        message: 'Login successful',
+        user: result.user,
+      });
     } catch (error) {
       return this.errorHandler.handle(res, error);
     }
@@ -56,12 +59,10 @@ export class AuthController {
   async googleAuthCallback(@Req() req, @Res() res: any) {
     try {
       const result = await this.authService.handleOAuthLogin(req.user);
-      return res
-        .setHeader('x-access-token', result.token)
-        .json({ 
-          message: 'Login successful',
-          user: result.user 
-        });
+      return res.setHeader('x-access-token', result.token).json({
+        message: 'Login successful',
+        user: result.user,
+      });
     } catch (error) {
       return this.errorHandler.handle(res, error);
     }
@@ -79,12 +80,10 @@ export class AuthController {
   async githubAuthCallback(@Req() req, @Res() res: any) {
     try {
       const result = await this.authService.handleOAuthLogin(req.user);
-      return res
-        .setHeader('x-access-token', result.token)
-        .json({ 
-          message: 'Login successful',
-          user: result.user 
-        });
+      return res.setHeader('x-access-token', result.token).json({
+        message: 'Login successful',
+        user: result.user,
+      });
     } catch (error) {
       return this.errorHandler.handle(res, error);
     }
@@ -102,12 +101,10 @@ export class AuthController {
   async gitlabAuthCallback(@Req() req, @Res() res: any) {
     try {
       const result = await this.authService.handleOAuthLogin(req.user);
-      return res
-        .setHeader('x-access-token', result.token)
-        .json({ 
-          message: 'Login successful',
-          user: result.user 
-        });
+      return res.setHeader('x-access-token', result.token).json({
+        message: 'Login successful',
+        user: result.user,
+      });
     } catch (error) {
       return this.errorHandler.handle(res, error);
     }

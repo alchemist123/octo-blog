@@ -45,4 +45,3 @@ export class MushroomAdmin extends Model<MushroomAdmin> {
   @Column(DataType.DATE)
   declare updatedAt: Date;
 }
-

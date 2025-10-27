@@ -1,7 +1,6 @@
 export default {
-    ACCESS_TOKEN_SECRET:
-      'ff9f7501-5f7c-40ff-bd74-465c4cb048e3808c10d1-cdfb-411e-9e17-93f55856d4b7',
-    ACCESS_TOKEN_EXP_TIME: '1h',
-    REFRESH_TOKEN_SECRET: '2h',
-  };
-  
+  ACCESS_TOKEN_SECRET:
+    'ff9f7501-5f7c-40ff-bd74-465c4cb048e3808c10d1-cdfb-411e-9e17-93f55856d4b7',
+  ACCESS_TOKEN_EXP_TIME: '1h',
+  REFRESH_TOKEN_SECRET: '2h',
+};

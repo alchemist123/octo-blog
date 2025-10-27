@@ -1,4 +1,9 @@
-import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
+import {
+  Module,
+  NestModule,
+  MiddlewareConsumer,
+  RequestMethod,
+} from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { Mushroom } from '../shared/models/Mushroom';
 import { User } from '../shared/models/User';
@@ -33,4 +38,3 @@ export class MushroomModule implements NestModule {
       );
   }
 }
-
