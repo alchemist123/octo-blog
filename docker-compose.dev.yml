@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: tpd-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tpd_backend_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - tpd-dev-network
+
+  # NestJS Application (Development with hot reload)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: tpd-backend-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DATABASE: tpd_backend_dev
+      JWT_SECRET: dev-secret-key
+    depends_on:
+      - postgres
+    networks:
+      - tpd-dev-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./uploads:/app/uploads
+
+volumes:
+  postgres_dev_data:
+
+networks:
+  tpd-dev-network:
+    driver: bridge

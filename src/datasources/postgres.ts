@@ -1,0 +1,19 @@
+require('dotenv').config();
+import { SequelizeOptions } from 'sequelize-typescript';
+import { Models } from '../shared/models';
+export const options: SequelizeOptions = {
+  dialect: 'postgres',
+  host: process.env.POSTGRES_HOST as string,
+  port: parseInt(process.env.POSTGRES_PORT as string, 10),
+  username: process.env.POSTGRES_USERNAME as string,
+  password: process.env.POSTGRES_PASSWORD as string,
+  database: process.env.POSTGRES_DATABASE as string,
+  models: Models,
+  logging: console.log,
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false,
+    },
+  },
+};

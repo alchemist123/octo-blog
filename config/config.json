@@ -1,0 +1,44 @@
+{
+    "development": {
+      "username": "neondb_owner",
+      "password": "npg_40wIgGsqaOny",
+      "database": "blog",
+      "host": "ep-young-field-ad8rccia-pooler.c-2.us-east-1.aws.neon.tech",
+      "dialect": "postgres",
+      "port": 5432,
+      "logging": false
+    },
+    "test": {
+      "username": "root",
+      "password": null,
+      "database": "database_test",
+      "host": "127.0.0.1",
+      "dialect": "mysql"
+    },
+    "production": {
+      "username": "root",
+      "password": null,
+      "database": "database_production",
+      "host": "127.0.0.1",
+      "dialect": "mysql"
+    },
+    "pre-production": {
+      "username": "postgres",
+      "password": "ecaps@123",
+      "database": "core",
+      "host": "2.mtlstaging.com",
+      "dialect": "postgres",
+      "port": 15000,
+      "logging":false
+    },
+    "staging":{
+      "username": "postgres",
+      "password": "100Thousand@",
+      "database": "coreapi3",
+      "host": "2.mtlstaging.com",
+      "dialect": "postgres",
+      "port": 12001,
+      "logging": false
+    }
+  }
+  
