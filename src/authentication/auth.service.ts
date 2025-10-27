@@ -169,7 +169,11 @@ export class AuthService {
     };
   }
 
-  private generateToken(userId: string): string {
+  async validateUserByEmail(email: string): Promise<User | null> {
+    return await this.userService.findByEmail(email);
+  }
+
+  generateToken(userId: string): string {
     return this.jwtService.sign({ userId });
   }
 }
