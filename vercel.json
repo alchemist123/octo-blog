@@ -1,11 +1,18 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "builds": [
+    {
+      "src": "dist/main.js",
+      "use": "@vercel/node",
+      "config": {
+        "maxDuration": 30
+      }
+    }
+  ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/main.js"
+      "dest": "dist/main.js"
     }
   ],
   "env": {
