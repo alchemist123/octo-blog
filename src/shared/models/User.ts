@@ -62,4 +62,9 @@ export class User extends Model<User> {
   @AllowNull(true)
   @Column
   declare providerId?: string; // OAuth provider ID
+
+  @AllowNull(false)
+  @Default(0)
+  @Column(DataType.INTEGER)
+  declare subscribersCount: number; // Count of users subscribed to this user
 }

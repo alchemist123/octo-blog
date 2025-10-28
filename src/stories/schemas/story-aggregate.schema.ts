@@ -16,11 +16,12 @@ export class StoryAggregate extends Document {
       name: { type: String },
       dp_url: { type: String },
       bio: { type: String },
-      id: { type: String }
+      id: { type: String },
+      subscribersCount: { type: Number }
     }],
     default: []
   })
-  like: { name: string; dp_url?: string; bio?: string; id?: string }[];
+  like: { name: string; dp_url?: string; bio?: string; id?: string; subscribersCount?: number }[];
 
   @Prop({ default: 0 })
   commentsCount: number;
@@ -61,7 +62,12 @@ export class StoryAggregate extends Document {
   mushroom?: Record<string, any>;
 
   @Prop({ type: Object, default: {} })
-  authordetails?: { name?: string; dp_url?: string };
+  authordetails?: { 
+    name?: string; 
+    dp_url?: string; 
+    bio?: string;
+    subscribersCount?: number;
+  };
 
   @Prop({ type: String, required: true, enum: ['self', 'mushroom'] })
   postType: 'self' | 'mushroom';

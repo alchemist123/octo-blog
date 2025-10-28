@@ -2,10 +2,14 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Op } from 'sequelize';
 import { User } from '../shared/models/User';
+import { UserSubscription } from '../shared/models/UserSubscription';
 
 @Injectable()
 export class UserService {
-  constructor(@InjectModel(User) private readonly userModel: typeof User) {}
+  constructor(
+    @InjectModel(User) private readonly userModel: typeof User,
+    @InjectModel(UserSubscription) private readonly userSubscriptionModel: typeof UserSubscription,
+  ) {}
 
   /**
    * Check if a user with the given email exists
@@ -233,5 +237,197 @@ export class UserService {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
     return user.interests || [];
+  }
+
+  /**
+   * Subscribe to a user
+   */
+  async subscribeToUser(subscriberId: string, subscribedToId: string): Promise<UserSubscription> {
+    // Check if the user is trying to subscribe to themselves
+    if (subscriberId === subscribedToId) {
+      throw new HttpException(
+        'You cannot subscribe to yourself',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Check if the subscribed to user exists
+    const subscribedTo = await this.userModel.findByPk(subscribedToId);
+    if (!subscribedTo) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Check if already subscribed
+    const existingSubscription = await this.userSubscriptionModel.findOne({
+      where: {
+        subscriberId,
+        subscribedToId,
+      },
+    });
+
+    if (existingSubscription) {
+      throw new HttpException(
+        'You are already subscribed to this user',
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    // Create subscription
+    const subscription = await this.userSubscriptionModel.create({
+      subscriberId,
+      subscribedToId,
+    } as any);
+
+    // Update subscribers count
+    await this.updateSubscribersCount(subscribedToId, 1);
+
+    return subscription;
+  }
+
+  /**
+   * Unsubscribe from a user
+   */
+  async unsubscribeFromUser(subscriberId: string, subscribedToId: string): Promise<void> {
+    // Check if the user is trying to unsubscribe from themselves
+    if (subscriberId === subscribedToId) {
+      throw new HttpException(
+        'You cannot unsubscribe from yourself',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Find the subscription
+    const subscription = await this.userSubscriptionModel.findOne({
+      where: {
+        subscriberId,
+        subscribedToId,
+      },
+    });
+
+    if (!subscription) {
+      throw new HttpException(
+        'You are not subscribed to this user',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Delete subscription
+    await subscription.destroy();
+
+    // Update subscribers count
+    await this.updateSubscribersCount(subscribedToId, -1);
+  }
+
+  /**
+   * Update subscribers count for a user
+   */
+  private async updateSubscribersCount(userId: string, increment: number): Promise<void> {
+    const user = await this.userModel.findByPk(userId);
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    const newCount = Math.max(0, (user.subscribersCount || 0) + increment);
+    await user.update({ subscribersCount: newCount });
+  }
+
+  /**
+   * Get subscribers for a user
+   */
+  async getSubscribers(
+    userId: string,
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<{ subscribers: any[]; total: number }> {
+    // Verify user exists
+    const user = await this.userModel.findByPk(userId);
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Get subscriptions
+    const subscriptions = await this.userSubscriptionModel.findAndCountAll({
+      where: {
+        subscribedToId: userId,
+      },
+      include: [
+        {
+          model: User,
+          as: 'subscriber',
+          attributes: ['id', 'name', 'userName', 'dp_url', 'bio', 'subscribersCount'],
+        },
+      ],
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
+    });
+
+    return {
+      subscribers: subscriptions.rows.map((sub) => ({
+        id: sub.id,
+        subscribedAt: sub.createdAt,
+        subscriber: sub.subscriber,
+      })),
+      total: subscriptions.count,
+    };
+  }
+
+  /**
+   * Get users that a user is subscribed to (following)
+   */
+  async getFollowing(
+    userId: string,
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<{ following: any[]; total: number }> {
+    // Verify user exists
+    const user = await this.userModel.findByPk(userId);
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Get subscriptions
+    const subscriptions = await this.userSubscriptionModel.findAndCountAll({
+      where: {
+        subscriberId: userId,
+      },
+      include: [
+        {
+          model: User,
+          as: 'subscribedTo',
+          attributes: ['id', 'name', 'userName', 'dp_url', 'bio', 'subscribersCount'],
+        },
+      ],
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
+    });
+
+    return {
+      following: subscriptions.rows.map((sub) => ({
+        id: sub.id,
+        subscribedAt: sub.createdAt,
+        user: sub.subscribedTo,
+      })),
+      total: subscriptions.count,
+    };
+  }
+
+  /**
+   * Get user profile
+   * Returns relevant user information excluding sensitive data like password
+   */
+  async getUserProfile(userId: string): Promise<any> {
+    const user = await this.userModel.findByPk(userId, {
+      attributes: {
+        exclude: ['password', 'provider', 'providerId'],
+      },
+    });
+
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    return user;
   }
 }

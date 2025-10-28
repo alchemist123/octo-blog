@@ -6,6 +6,7 @@ import { Like } from '../shared/models/Like';
 import { CommentLike } from '../shared/models/CommentLike';
 import { User } from '../shared/models/User';
 import { Mushroom } from '../shared/models/Mushroom';
+import { MushroomAdmin } from '../shared/models/MushroomAdmin';
 import { StoriesController } from './stories.controller';
 import { StoriesService } from './stories.service';
 import { GatekeeperModule } from '../gatekeeper/gatekeeper.module';
@@ -23,7 +24,7 @@ import { RequestMethod } from '@nestjs/common';
 
 @Module({
   imports: [
-    SequelizeModule.forFeature([Story, Like, CommentLike, User, Mushroom]),
+    SequelizeModule.forFeature([Story, Like, CommentLike, User, Mushroom, MushroomAdmin]),
     MongooseModule.forFeature([
       { name: 'StoryContent', schema: StoryContentSchema },
       { name: 'StoryAggregate', schema: StoryAggregateSchema },

@@ -277,6 +277,52 @@ export class StoriesController {
   }
 
   /**
+   * Publish a story
+   */
+  @Post(':id/publish')
+  @Throttle({ medium: { ttl: 10000, limit: 10 } })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Publish a story' })
+  @ApiOkResponse({ description: 'Story published or requested successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiNotFoundResponse({ description: 'Story not found' })
+  @ApiBadRequestResponse({ description: 'Story already published or requested' })
+  async publishStory(
+    @Param('id') id: string,
+    @Req() request: any,
+  ): Promise<{ story: any; message: string }> {
+    const user = request.user;
+    const story = await this.storiesService.publishStory(id, user.id);
+    return {
+      story,
+      message: `Story ${story.status === 'requested' ? 'requested for approval' : 'published'} successfully`,
+    };
+  }
+
+  /**
+   * Approve a requested story (admin only)
+   */
+  @Post(':id/approve')
+  @Throttle({ medium: { ttl: 10000, limit: 10 } })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Approve a requested story (admin only)' })
+  @ApiOkResponse({ description: 'Story approved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiNotFoundResponse({ description: 'Story not found' })
+  @ApiBadRequestResponse({ description: 'Story not in requested status' })
+  async approveStory(
+    @Param('id') id: string,
+    @Req() request: any,
+  ): Promise<{ story: any; message: string }> {
+    const user = request.user;
+    const story = await this.storiesService.approveStory(id, user.id);
+    return {
+      story,
+      message: 'Story approved and published successfully',
+    };
+  }
+
+  /**
    * Create comment on a story
    */
   @Post(':id/comments')

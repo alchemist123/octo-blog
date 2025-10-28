@@ -13,6 +13,7 @@ import { Like } from '../shared/models/Like';
 import { CommentLike } from '../shared/models/CommentLike';
 import { User } from '../shared/models/User';
 import { Mushroom } from '../shared/models/Mushroom';
+import { MushroomAdmin } from '../shared/models/MushroomAdmin';
 import { CreateStoryDto } from './dto/create-story.dto';
 import { UpdateStoryDto } from './dto/update-story.dto';
 import { FilterStoryDto } from './dto/filter-story.dto';
@@ -39,6 +40,7 @@ export class StoriesService {
     @InjectModel(CommentLike) private readonly commentLikeModel: typeof CommentLike,
     @InjectModel(User) private readonly userModel: typeof User,
     @InjectModel(Mushroom) private readonly mushroomModel: typeof Mushroom,
+    @InjectModel(MushroomAdmin) private readonly mushroomAdminModel: typeof MushroomAdmin,
     @InjectMongooseModel('StoryContent', 'blog')
     private readonly storyContentModel: Model<StoryContent>,
     @InjectMongooseModel('Comment', 'blog')
@@ -53,6 +55,8 @@ export class StoriesService {
    * Create a new story
    */
   async create(user: any, createStoryDto: CreateStoryDto): Promise<any> {
+    let mushroomDetails = {};
+    
     // Check if mushroomId is provided and validate it
     if (createStoryDto.mushroomId) {
       const mushroom = await this.mushroomModel.findByPk(
@@ -61,6 +65,17 @@ export class StoriesService {
       if (!mushroom) {
         throw new HttpException('Mushroom not found', HttpStatus.NOT_FOUND);
       }
+      
+      // Store mushroom details
+      mushroomDetails = {
+        id: mushroom.id,
+        name: mushroom.name,
+        description: mushroom.description,
+        status: mushroom.status,
+        dp_url: mushroom.dp_url,
+        type: mushroom.type,
+        subscribers: mushroom.subscribers,
+      };
     }
 
     // Check for duplicate story with same title, thumbnails_url, and authorId
@@ -112,8 +127,13 @@ export class StoriesService {
         tagLine: story.tagLine,
         hashtags: story.hashtags || [],
         mushroomId: story.mushroomId || null,
-        mushroom: {},
-        authordetails: { name: user?.name || '', dp_url: user?.dp_url || '',bio: user?.bio || '' },
+        mushroom: mushroomDetails,
+        authordetails: { 
+          name: user?.name || '', 
+          dp_url: user?.dp_url || '',
+          bio: user?.bio || '',
+          subscribersCount: user?.subscribersCount || 0
+        },
         postType: story.postType,
         storyType: story.storyType,
         status: story.status,
@@ -271,10 +291,36 @@ export class StoriesService {
     // Update PostgreSQL record
     await story.update(updateStoryDto);
 
+    // Prepare MongoDB update data
+    let mongoUpdateData: any = { ...updateStoryDto };
+
+    // If mushroomId is being updated, fetch and store new mushroom details
+    if (updateStoryDto.mushroomId !== undefined) {
+      if (updateStoryDto.mushroomId) {
+        const mushroom = await this.mushroomModel.findByPk(updateStoryDto.mushroomId);
+        if (!mushroom) {
+          throw new HttpException('Mushroom not found', HttpStatus.NOT_FOUND);
+        }
+        
+        mongoUpdateData.mushroom = {
+          id: mushroom.id,
+          name: mushroom.name,
+          description: mushroom.description,
+          status: mushroom.status,
+          dp_url: mushroom.dp_url,
+          type: mushroom.type,
+          subscribers: mushroom.subscribers,
+        };
+      } else {
+        // If mushroomId is being removed, set mushroom to empty object
+        mongoUpdateData.mushroom = {};
+      }
+    }
+
     // Update MongoDB aggregate document
     await this.storyAggregateModel.findOneAndUpdate(
       { storyId: id },
-      { $set: updateStoryDto },
+      { $set: mongoUpdateData },
       { upsert: true },
     );
 
@@ -477,7 +523,7 @@ export class StoriesService {
       if (totalLikes < 3) {
         likes = await this.likeModel.findAll({
           where: { storyId },
-          include: [{ model: User, attributes: ['id', 'name', 'dp_url', 'bio'] }],
+          include: [{ model: User, attributes: ['id', 'name', 'dp_url', 'bio', 'subscribersCount'] }],
           order: [['createdAt', 'ASC']],
           limit: 3,
         });
@@ -495,6 +541,7 @@ export class StoriesService {
               dp_url: l.user?.dp_url || '',
               bio: l.user?.bio || '',
               id: l.user?.id || '',
+              subscribersCount: l.user?.subscribersCount || 0,
             })),
           },
         },
@@ -507,7 +554,7 @@ export class StoriesService {
 
       // Get user info
       const user = await this.userModel.findByPk(userId, {
-        attributes: ['id', 'name', 'dp_url', 'bio'],
+        attributes: ['id', 'name', 'dp_url', 'bio', 'subscribersCount'],
       });
 
       if (!user) {
@@ -522,7 +569,7 @@ export class StoriesService {
       if (totalLikes <= 3) {
         likes = await this.likeModel.findAll({
           where: { storyId },
-          include: [{ model: User, attributes: ['id', 'name', 'dp_url', 'bio'] }],
+          include: [{ model: User, attributes: ['id', 'name', 'dp_url', 'bio', 'subscribersCount'] }],
           order: [['createdAt', 'ASC']],
           limit: 3,
         });
@@ -539,6 +586,7 @@ export class StoriesService {
               dp_url: l.user?.dp_url || '',
               bio: l.user?.bio || '',
               id: l.user?.id || '',
+              subscribersCount: l.user?.subscribersCount || 0,
             })),
           },
         },
@@ -722,6 +770,128 @@ export class StoriesService {
     }
 
     await this.storyBlockModel.deleteOne({ _id: blockId });
+  }
+
+  /**
+   * Check if user is admin of a mushroom
+   */
+  async isAdmin(mushroomId: string, userId: string): Promise<boolean> {
+    // Check if user is the creator of the mushroom
+    const mushroom = await this.mushroomModel.findByPk(mushroomId);
+    if (mushroom && mushroom.userId === userId) {
+      return true;
+    }
+
+    // Check if user is in the admins table
+    const admin = await this.mushroomAdminModel.findOne({
+      where: { mushroomId, userId },
+    });
+
+    return !!admin;
+  }
+
+  /**
+   * Publish a story
+   * If the story has a mushroomId and the mushroom is closed, set status to 'requested'
+   * Otherwise, set status to 'published'
+   */
+  async publishStory(storyId: string, userId: string): Promise<any> {
+    const story = await this.storyModel.findByPk(storyId);
+    if (!story) {
+      throw new HttpException('Story not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Check ownership
+    if (story.authorId !== userId) {
+      throw new HttpException(
+        'Forbidden: You can only publish your own stories',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Check if story is already published or requested
+    if (story.status === 'published' || story.status === 'requested') {
+      throw new HttpException(
+        'Story is already published or requested',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    let newStatus: 'requested' | 'published';
+
+    // Check if story has mushroomId and mushroom is closed
+    if (story.mushroomId) {
+      const mushroom = await this.mushroomModel.findByPk(story.mushroomId);
+      if (!mushroom) {
+        throw new HttpException('Mushroom not found', HttpStatus.NOT_FOUND);
+      }
+
+      // If mushroom is closed, status is 'requested', otherwise 'published'
+      newStatus = mushroom.status === 'closed' ? 'requested' : 'published';
+    } else {
+      // No mushroomId, directly publish
+      newStatus = 'published';
+    }
+
+    // Update story status in PostgreSQL
+    await story.update({ status: newStatus });
+
+    // Update MongoDB aggregate document
+    await this.storyAggregateModel.findOneAndUpdate(
+      { storyId },
+      { $set: { status: newStatus } },
+      { upsert: true },
+    );
+
+    return story;
+  }
+
+  /**
+   * Approve a requested story (admin only)
+   * Changes status from 'requested' to 'published'
+   */
+  async approveStory(storyId: string, userId: string): Promise<any> {
+    const story = await this.storyModel.findByPk(storyId);
+    if (!story) {
+      throw new HttpException('Story not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Check if story has mushroomId
+    if (!story.mushroomId) {
+      throw new HttpException(
+        'Story does not belong to a mushroom',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Check if story status is 'requested'
+    if (story.status !== 'requested') {
+      throw new HttpException(
+        'Story is not in requested status',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Check if user is admin of the mushroom
+    const isAdmin = await this.isAdmin(story.mushroomId, userId);
+    if (!isAdmin) {
+      throw new HttpException(
+        'Forbidden: Only admins can approve stories',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Update story status to 'published'
+    await story.update({ status: 'published' });
+
+    // Update MongoDB aggregate document
+    await this.storyAggregateModel.findOneAndUpdate(
+      { storyId },
+      { $set: { status: 'published' } },
+      { upsert: true },
+    );
+
+    return story;
   }
 }
 
