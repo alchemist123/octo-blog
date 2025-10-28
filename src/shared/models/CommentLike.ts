@@ -8,39 +8,32 @@ import {
   Default,
   ForeignKey,
   BelongsTo,
+  Index,
+  Unique,
 } from 'sequelize-typescript';
 import { User } from './User';
-import { Story } from './Story';
 
-@Table({ tableName: 'comments', schema: 'storie' })
-export class Comment extends Model<Comment> {
+@Table({ tableName: 'comment_likes', schema: 'storie' })
+export class CommentLike extends Model<CommentLike> {
   @PrimaryKey
   @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
   declare id: string;
 
-  @ForeignKey(() => Story)
-  @Column(DataType.UUID)
-  declare storyId: string;
-
-  @BelongsTo(() => Story)
-  declare story: Story;
+  // MongoDB comment document id stored as string
+  @AllowNull(false)
+  @Index
+  @Column(DataType.STRING)
+  declare commentId: string;
 
   @ForeignKey(() => User)
+  @AllowNull(false)
+  @Index
   @Column(DataType.UUID)
   declare userId: string;
 
   @BelongsTo(() => User)
   declare user: User;
-
-  @AllowNull(true)
-  @Column(DataType.UUID)
-  declare parentId: string; // For nested replies
-
-  @AllowNull(false)
-  @Default(0)
-  @Column(DataType.INTEGER)
-  declare likesCount: number;
 
   @AllowNull(false)
   @Default(DataType.NOW)
@@ -52,4 +45,5 @@ export class Comment extends Model<Comment> {
   @Column(DataType.DATE)
   declare updatedAt: Date;
 }
+
 

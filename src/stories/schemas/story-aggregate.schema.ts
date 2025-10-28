@@ -11,14 +11,30 @@ export class StoryAggregate extends Document {
   @Prop({ default: 0 })
   likesCount: number;
 
-  @Prop({ type: [{ name: { type: String }, dp_url: { type: String } }], default: [] })
-  like: { name: string; dp_url?: string }[];
+  @Prop({
+    type: [{
+      name: { type: String },
+      dp_url: { type: String },
+      bio: { type: String },
+      id: { type: String }
+    }],
+    default: []
+  })
+  like: { name: string; dp_url?: string; bio?: string; id?: string }[];
 
   @Prop({ default: 0 })
   commentsCount: number;
 
-  @Prop({ type: [{ name: { type: String }, dp_url: { type: String } }], default: [] })
-  comment: { name: string; dp_url?: string }[];
+  @Prop({
+    type: [{
+      name: { type: String },
+      dp_url: { type: String },
+      bio: { type: String },
+      id: { type: String }
+    }],
+    default: []
+  })
+  comment: { name: string; dp_url?: string; bio?: string; id?: string }[];
 
   @Prop({ default: 0 })
   viewsCount: number;

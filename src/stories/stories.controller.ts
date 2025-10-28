@@ -17,8 +17,11 @@ import { StoriesService } from './stories.service';
 import { CreateStoryDto } from './dto/create-story.dto';
 import { UpdateStoryDto } from './dto/update-story.dto';
 import { FilterStoryDto } from './dto/filter-story.dto';
+import { MyStoriesFilterDto } from './dto/my-stories-filter.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { CreateLikeDto } from './dto/create-like.dto';
+import { CreateStoryBlockDto } from './dto/create-story-block.dto';
+import { UpdateStoryBlockDto } from './dto/update-story-block.dto';
 import { JwtAuthGuard } from '../authentication/guards/jwt.guard';
 import {
   ApiBadRequestResponse,
@@ -57,32 +60,183 @@ export class StoriesController {
   }
 
   /**
-   * Get all stories with filters
+   * Get all stories with filters and pagination
    */
   @Get()
   @Throttle({ medium: { ttl: 10000, limit: 20 } })
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get all stories with filters' })
-  @ApiOkResponse({ description: 'Stories fetched successfully' })
+  @ApiOperation({ summary: 'Get all stories with filters and pagination' })
+  @ApiOkResponse({ 
+    description: 'Stories fetched successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        stories: { type: 'array', items: { type: 'object' } },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        size: { type: 'number' },
+      },
+    },
+  })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  async getAll(@Query() filter: FilterStoryDto): Promise<{ stories: any[] }> {
-    const stories = await this.storiesService.findAll(filter);
-    return { stories };
+  async getAll(
+    @Query() filter: FilterStoryDto,
+    @Req() request: any,
+  ): Promise<{
+    stories: any[];
+    total: number;
+    page: number;
+    size: number;
+  }> {
+    const pagination = request.pagination || {
+      page: 1,
+      size: 20,
+      limit: 20,
+      offset: 0,
+    };
+
+    const { limit, offset, page, size } = pagination;
+
+    const result = await this.storiesService.findAll(filter, limit, offset);
+
+    return {
+      stories: result.stories,
+      total: result.total,
+      page,
+      size,
+    };
   }
 
   /**
-   * Get story by ID with content
+   * Get my stories with filters (drafted, requested, published) and pagination
    */
-  @Get(':id')
+  @Get('my-stories')
   @Throttle({ medium: { ttl: 10000, limit: 20 } })
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get story by id with content' })
-  @ApiOkResponse({ description: 'Story fetched successfully' })
-  @ApiNotFoundResponse({ description: 'Story not found' })
+  @ApiOperation({ 
+    summary: 'Get my stories with filters and pagination',
+    description: 'Retrieve stories created by the authenticated user. Filter by status (draft, requested, published) and paginate results using query parameters: ?status=draft&page=1&size=10'
+  })
+  @ApiOkResponse({ 
+    description: 'My stories fetched successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        stories: { type: 'array', items: { type: 'object' } },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        size: { type: 'number' },
+      },
+    },
+  })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  async getById(@Param('id') id: string): Promise<{ story: any }> {
-    const story = await this.storiesService.findById(id);
-    return { story };
+  async getMyStories(
+    @Query() filter: MyStoriesFilterDto,
+    @Req() request: any,
+  ): Promise<{
+    stories: any[];
+    total: number;
+    page: number;
+    size: number;
+  }> {
+    const pagination = request.pagination || {
+      page: 1,
+      size: 10,
+      limit: 10,
+      offset: 0,
+    };
+
+    const { limit, offset, page, size } = pagination;
+    
+    // Get authenticated user from JWT token (authorId)
+    const user = request.user;
+    
+    if (!user || !user.id) {
+      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+    }
+
+    const result = await this.storiesService.findMyStories(
+      user.id,
+      filter.status,
+      limit,
+      offset,
+    );
+
+    return {
+      stories: result.stories,
+      total: result.total,
+      page,
+      size,
+    };
+  }
+
+  /**
+   * Get all blocks for a story with pagination
+   */
+  @Get(':storyId/blocks')
+  @Throttle({ medium: { ttl: 10000, limit: 20 } })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get all content blocks for a story with pagination' })
+  @ApiOkResponse({ 
+    description: 'Story blocks fetched successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        blocks: { type: 'array', items: { type: 'object' } },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        size: { type: 'number' },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiNotFoundResponse({ description: 'Story not found' })
+  async getStoryBlocks(
+    @Param('storyId') storyId: string,
+    @Req() request: any,
+  ): Promise<{ blocks: any[]; total: number; page: number; size: number }> {
+    const pagination = request.pagination || {
+      page: 1,
+      size: 20,
+      limit: 20,
+      offset: 0,
+    };
+
+    const { limit, offset, page, size } = pagination;
+
+    const result = await this.storiesService.getStoryBlocks(storyId, limit, offset);
+
+    return {
+      blocks: result.blocks,
+      total: result.total,
+      page,
+      size,
+    };
+  }
+
+  /**
+   * Add a content block to a story
+   */
+  @Post(':storyId/blocks')
+  @Throttle({ medium: { ttl: 10000, limit: 15 } })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Add a content block to a story' })
+  @ApiCreatedResponse({ description: 'Story block created successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid payload' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiNotFoundResponse({ description: 'Story not found' })
+  async addStoryBlock(
+    @Param('storyId') storyId: string,
+    @Body() createBlockDto: CreateStoryBlockDto,
+    @Req() request: any,
+  ): Promise<{ block: any }> {
+    const user = request.user;
+    const block = await this.storiesService.addStoryBlock(
+      storyId,
+      user.id,
+      createBlockDto,
+    );
+    return { block };
   }
 
   /**
@@ -148,30 +302,46 @@ export class StoriesController {
   }
 
   /**
-   * Get comments for a story
+   * Get comments for a story or replies for a comment
    */
-  @Get(':id/comments')
+  @Get('comments')
   @Throttle({ medium: { ttl: 10000, limit: 20 } })
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get comments for a story' })
-  @ApiOkResponse({ description: 'Comments fetched successfully' })
+  @ApiOperation({ summary: 'Get comments for a story or replies for a comment' })
+  @ApiOkResponse({ 
+    description: 'Comments fetched successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        comments: { type: 'array', items: { type: 'object' } },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        size: { type: 'number' },
+      },
+    },
+  })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiNotFoundResponse({ description: 'Story not found' })
   async getComments(
-    @Param('id') id: string,
+    @Query('parentId') parentId: string,
     @Req() request: any,
-  ): Promise<{ comments: any[]; total: number }> {
+  ): Promise<{ comments: any[]; total: number; page: number; size: number }> {
     const pagination = request.pagination || {
-      limit: 20,
+      page: 1,
+      size: 5, // Default 5 as requested
+      limit: 5,
       offset: 0,
     };
 
-    const result = await this.storiesService.getComments(
-      id,
-      pagination.limit,
-      pagination.offset,
-    );
-    return result;
+    const { limit, offset, page, size } = pagination;
+
+    const result = await this.storiesService.getComments(parentId, limit, offset);
+
+    return {
+      ...result,
+      page,
+      size,
+    };
   }
 
   /**
@@ -216,6 +386,50 @@ export class StoriesController {
       ...result,
       message: result.liked ? 'Comment liked' : 'Comment unliked',
     };
+  }
+
+  /**
+   * Update a content block
+   */
+  @Put('blocks/:blockId')
+  @Throttle({ medium: { ttl: 10000, limit: 15 } })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Update a story block' })
+  @ApiOkResponse({ description: 'Story block updated successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid payload' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiNotFoundResponse({ description: 'Block not found' })
+  async updateStoryBlock(
+    @Param('blockId') blockId: string,
+    @Body() updateBlockDto: UpdateStoryBlockDto,
+    @Req() request: any,
+  ): Promise<{ block: any }> {
+    const user = request.user;
+    const block = await this.storiesService.updateStoryBlock(
+      blockId,
+      user.id,
+      updateBlockDto,
+    );
+    return { block };
+  }
+
+  /**
+   * Delete a content block
+   */
+  @Delete('blocks/:blockId')
+  @Throttle({ medium: { ttl: 10000, limit: 10 } })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Delete a story block' })
+  @ApiOkResponse({ description: 'Story block deleted successfully' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiNotFoundResponse({ description: 'Block not found' })
+  async deleteStoryBlock(
+    @Param('blockId') blockId: string,
+    @Req() request: any,
+  ): Promise<{ message: string }> {
+    const user = request.user;
+    await this.storiesService.deleteStoryBlock(blockId, user.id);
+    return { message: 'Story block deleted successfully' };
   }
 }
 

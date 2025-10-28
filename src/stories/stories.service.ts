@@ -9,8 +9,8 @@ import { InjectModel as InjectMongooseModel } from '@nestjs/mongoose';
 import mongoose, { Model } from 'mongoose';
 import { Op } from 'sequelize';
 import { Story } from '../shared/models/Story';
-import { Comment } from '../shared/models/Comment';
 import { Like } from '../shared/models/Like';
+import { CommentLike } from '../shared/models/CommentLike';
 import { User } from '../shared/models/User';
 import { Mushroom } from '../shared/models/Mushroom';
 import { CreateStoryDto } from './dto/create-story.dto';
@@ -21,36 +21,32 @@ import {
   StoryContent,
   StoryContentSchema,
 } from './schemas/story-content.schema';
-import {
-  CommentContent,
-  CommentContentSchema,
-} from './schemas/comment-content.schema';
-import {
-  StoryLikeDetails,
-  StoryLikeDetailsSchema,
-  CommentLikeDetails,
-  CommentLikeDetailsSchema,
-} from './schemas/like-details.schema';
+import { Comment as CommentMongo, CommentSchema } from './schemas/comment.schema';
+// CommentLikeDetails removed - using PostgreSQL likes table
 import { StoryAggregate } from './schemas/story-aggregate.schema';
+import {
+  StoryBlock,
+  StoryBlockSchema,
+} from './schemas/story-block.schema';
+import { CreateStoryBlockDto } from './dto/create-story-block.dto';
+import { UpdateStoryBlockDto } from './dto/update-story-block.dto';
 
 @Injectable()
 export class StoriesService {
   constructor(
     @InjectModel(Story) private readonly storyModel: typeof Story,
-    @InjectModel(Comment) private readonly commentModel: typeof Comment,
     @InjectModel(Like) private readonly likeModel: typeof Like,
+    @InjectModel(CommentLike) private readonly commentLikeModel: typeof CommentLike,
     @InjectModel(User) private readonly userModel: typeof User,
     @InjectModel(Mushroom) private readonly mushroomModel: typeof Mushroom,
     @InjectMongooseModel('StoryContent', 'blog')
     private readonly storyContentModel: Model<StoryContent>,
-    @InjectMongooseModel('CommentContent', 'blog')
-    private readonly commentContentModel: Model<CommentContent>,
-    @InjectMongooseModel('StoryLikeDetails', 'blog')
-    private readonly storyLikeDetailsModel: Model<StoryLikeDetails>,
-    @InjectMongooseModel('CommentLikeDetails', 'blog')
-    private readonly commentLikeDetailsModel: Model<CommentLikeDetails>,
+    @InjectMongooseModel('Comment', 'blog')
+    private readonly commentMongoModel: Model<CommentMongo>,
     @InjectMongooseModel('StoryAggregate', 'blog')
     private readonly storyAggregateModel: Model<StoryAggregate>,
+    @InjectMongooseModel('StoryBlock', 'blog')
+    private readonly storyBlockModel: Model<StoryBlock>,
   ) {}
 
   /**
@@ -138,47 +134,92 @@ export class StoriesService {
   }
 
   /**
-   * Get all stories with filters
+   * Get all stories with filters from MongoDB
    */
-  async findAll(filter: FilterStoryDto): Promise<Story[]> {
-    const where: any = {};
+  async findAll(
+    filter: FilterStoryDto,
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<{ stories: any[]; total: number }> {
+    const query: any = {};
 
     if (filter.postType) {
-      where.postType = filter.postType;
+      query.postType = filter.postType;
     }
 
     if (filter.storyType) {
-      where.storyType = filter.storyType;
+      query.storyType = filter.storyType;
     }
 
     if (filter.status) {
-      where.status = filter.status;
+      query.status = filter.status;
     }
 
     if (filter.authorId) {
-      where.authorId = filter.authorId;
+      query.authorId = filter.authorId;
     }
 
     if (filter.mushroomId) {
-      where.mushroomId = filter.mushroomId;
+      query.mushroomId = filter.mushroomId;
     }
 
     if (filter.search) {
-      where[Op.or] = [
-        { title: { [Op.iLike]: `%${filter.search}%` } },
-        { tagLine: { [Op.iLike]: `%${filter.search}%` } },
-        { hashtags: { [Op.contains]: [filter.search] } },
+      query.$or = [
+        { title: { $regex: filter.search, $options: 'i' } },
+        { tagLine: { $regex: filter.search, $options: 'i' } },
+        { hashtags: { $in: [filter.search] } },
       ];
     }
 
-    return await this.storyModel.findAll({
-      where,
-      include: [
-        { model: User, attributes: ['id', 'name', 'dp_url', 'bio'] },
-        { model: Mushroom, attributes: ['id', 'name', 'type', 'dp_url'] },
-      ],
-      order: [['createdAt', 'DESC']],
-    });
+    const stories = await this.storyAggregateModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(offset)
+      .exec();
+
+    const total = await this.storyAggregateModel.countDocuments(query);
+
+    return {
+      stories: stories.map((story) => story.toJSON()),
+      total,
+    };
+  }
+
+  /**
+   * Get my stories with filters (status) and pagination from MongoDB
+   * @param userId - The authenticated user's ID from JWT token (used as authorId)
+   * @param status - Optional filter by story status (draft, requested, published)
+   * @param limit - Number of stories to retrieve per page
+   * @param offset - Number of stories to skip
+   */
+  async findMyStories(
+    userId: string, // From JWT token - always the authenticated user's ID
+    status?: 'draft' | 'requested' | 'published',
+    limit: number = 10,
+    offset: number = 0,
+  ): Promise<{ stories: any[]; total: number }> {
+    const query: any = {
+      authorId: userId, // Filter by authenticated user's ID from token
+    };
+
+    if (status) {
+      query.status = status;
+    }
+
+    const stories = await this.storyAggregateModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(offset)
+      .exec();
+
+    const total = await this.storyAggregateModel.countDocuments(query);
+
+    return {
+      stories: stories.map((story) => story.toJSON()),
+      total,
+    };
   }
 
   /**
@@ -230,17 +271,12 @@ export class StoriesService {
     // Update PostgreSQL record
     await story.update(updateStoryDto);
 
-    // Update MongoDB content if provided
-    if (updateStoryDto.content) {
-      await this.storyContentModel.findOneAndUpdate(
-        { storyId: id },
-        {
-          content: updateStoryDto.content,
-          'metadata.lastEdited': new Date(),
-        },
-        { upsert: true },
-      );
-    }
+    // Update MongoDB aggregate document
+    await this.storyAggregateModel.findOneAndUpdate(
+      { storyId: id },
+      { $set: updateStoryDto },
+      { upsert: true },
+    );
 
     return story;
   }
@@ -268,20 +304,19 @@ export class StoriesService {
 
     // Delete from MongoDB
     await this.storyContentModel.deleteOne({ storyId: id });
-    await this.storyLikeDetailsModel.deleteOne({ storyId: id });
 
-    // Delete related comments and likes
-    const comments = await this.commentModel.findAll({ where: { storyId: id } });
-    const commentIds = comments.map((c) => c.id);
-
-    await this.commentModel.destroy({ where: { storyId: id } });
+    // Delete related comments from MongoDB and likes from PostgreSQL
+    const comments = await this.commentMongoModel.find({
+      $or: [{ parentId: id }, { parentId: { $in: [id] } }],
+    });
+    
+    // Delete likes for this story
     await this.likeModel.destroy({
-      where: { [Op.or]: [{ storyId: id }, { commentId: { [Op.in]: commentIds } }] },
+      where: { storyId: id },
     });
 
-    // Delete comment contents and likes from MongoDB
-    await this.commentContentModel.deleteMany({ commentId: { $in: commentIds } });
-    await this.commentLikeDetailsModel.deleteMany({ commentId: { $in: commentIds } });
+    // Delete comment contents from MongoDB
+    // comment contents stored in PostgreSQL; no MongoDB cleanup needed
   }
 
   /**
@@ -292,18 +327,21 @@ export class StoriesService {
     userId: string,
     createCommentDto: CreateCommentDto,
   ): Promise<any> {
-    // Check if story exists
-    const story = await this.storyModel.findByPk(storyId);
-    if (!story) {
-      throw new HttpException('Story not found', HttpStatus.NOT_FOUND);
+    // Get user info for the comment
+    const user = await this.userModel.findByPk(userId, {
+      attributes: ['id', 'name', 'dp_url', 'bio'],
+    });
+
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
 
-    // If parentId exists, validate the parent comment
+    // If parentId exists, validate the parent comment exists in MongoDB
     if (createCommentDto.parentId) {
-      const parentComment = await this.commentModel.findByPk(
+      const parentComment = await this.commentMongoModel.findById(
         createCommentDto.parentId,
       );
-      if (!parentComment || parentComment.storyId !== storyId) {
+      if (!parentComment) {
         throw new HttpException(
           'Parent comment not found',
           HttpStatus.NOT_FOUND,
@@ -311,114 +349,104 @@ export class StoriesService {
       }
     }
 
-    // Create comment in PostgreSQL
-    const comment = await this.commentModel.create({
-      storyId,
-      userId,
-      parentId: createCommentDto.parentId,
-    } as any);
-
-    // Store comment content in MongoDB
-    await this.commentContentModel.create({
-      commentId: comment.id,
+    // Create comment in MongoDB
+    const comment = await this.commentMongoModel.create({
+      parentId: createCommentDto.parentId || storyId,
       content: createCommentDto.content,
-      createdAt: new Date(),
+      userdetails: {
+        name: user.name || '',
+        id: user.id || '',
+        dp_url: user.dp_url || '',
+        bio: user.bio || '',
+      },
+      likesCount: 0,
+      repliesCount: 0,
     });
 
-    // Update comments count
-    await this.storyModel.update(
-      { commentsCount: story.commentsCount + 1 },
-      { where: { id: storyId } },
-    );
+    // Get total comment count from MongoDB for this story
+    const totalComments = await this.commentMongoModel.countDocuments({
+      $or: [{ parentId: storyId }, { _id: storyId }],
+    });
 
-    // Get user info
-    const user = await this.userModel.findByPk(userId);
-
-    if (!user) {
-      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    // If this is a reply, update parent comment's repliesCount
+    if (createCommentDto.parentId) {
+      await this.commentMongoModel.findByIdAndUpdate(createCommentDto.parentId, {
+        $inc: { repliesCount: 1 },
+      });
     }
+
+    // Update MongoDB story aggregate with comment count
+    let updateData: any = {
+      $set: {
+        commentsCount: totalComments,
+      },
+    };
+
+    // Only add to comment array if:
+    // 1. This is not a reply (no parentId)
+    // 2. Total comment count is less than 5
+    if (!createCommentDto.parentId && totalComments <= 5) {
+      // Get existing comments array
+      const storyAggregate = await this.storyAggregateModel.findOne({ storyId });
+      const existingComments = storyAggregate?.comment || [];
+
+      // Check if user is already in the array
+      const userAlreadyInArray = existingComments.some((c: any) => c.id === userId);
+
+      if (!userAlreadyInArray) {
+        // Add this user to the array
+        updateData.$push = {
+          comment: {
+            name: user.name || '',
+            dp_url: user.dp_url || '',
+            bio: user.bio || '',
+            id: user.id || '',
+          },
+        };
+      }
+    }
+
+    // Update MongoDB story aggregate
+    await this.storyAggregateModel.findOneAndUpdate({ storyId }, updateData);
 
     return {
       ...comment.toJSON(),
-      user: {
-        id: user.id,
-        name: user.name,
-        dp_url: user.dp_url,
-        bio: user.bio,
-      },
-      content: createCommentDto.content,
+      userdetails: comment.userdetails,
     };
   }
 
   /**
-   * Get comments for a story with replies
+   * Get comments for a story or replies for a comment from MongoDB
    */
-  async getComments(storyId: string, limit: number, offset: number): Promise<any> {
-    const comments = await this.commentModel.findAll({
-      where: { storyId, parentId: null as any }, // Only top-level comments
-      include: [
-        { model: User, attributes: ['id', 'name', 'dp_url', 'bio'] },
-      ],
-      limit,
-      offset,
-      order: [['createdAt', 'DESC']],
-    });
+  async getComments(
+    parentId: string,
+    limit: number = 5,
+    offset: number = 0,
+  ): Promise<any> {
+    // Query MongoDB for comments with the given parentId
+    const query = { parentId };
 
-    // Get content from MongoDB
-    const commentIds = comments.map((c) => c.id);
-    const commentContents = await this.commentContentModel.find({
-      commentId: { $in: commentIds },
-    });
-    const contentMap = new Map(
-      commentContents.map((cc) => [cc.commentId, cc.content]),
-    );
+    const comments = await this.commentMongoModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(offset)
+      .exec();
 
-    // Get like details for each comment
-    const likeDetails = await this.commentLikeDetailsModel.find({
-      commentId: { $in: commentIds },
-    });
-    const likesMap = new Map(
-      likeDetails.map((ld) => [ld.commentId, ld.toJSON()]),
-    );
-
-    // Get replies for each comment
-    const replyPromises = comments.map(async (comment) => {
-      const replies = await this.commentModel.findAll({
-        where: { parentId: comment.id },
-        include: [
-          { model: User, attributes: ['id', 'name', 'dp_url', 'bio'] },
-        ],
-        order: [['createdAt', 'ASC']],
-      });
-
-      // Get reply contents
-      if (replies.length > 0) {
-        const replyIds = replies.map((r) => r.id);
-        const replyContents = await this.commentContentModel.find({
-          commentId: { $in: replyIds },
-        });
-        const replyContentsMap = new Map(
-          replyContents.map((rc) => [rc.commentId, rc.content]),
-        );
-
-        return replies.map((reply) => ({
-          ...reply.toJSON(),
-          content: replyContentsMap.get(reply.id),
-        }));
-      }
-      return [];
-    });
-
-    const allReplies = await Promise.all(replyPromises);
+    const total = await this.commentMongoModel.countDocuments(query);
 
     return {
-      comments: comments.map((comment, idx) => ({
-        ...comment.toJSON(),
-        content: contentMap.get(comment.id),
-        likes: likesMap.get(comment.id) || { count: 0, likes: [] },
-        replies: allReplies[idx],
-      })),
-      total: await this.commentModel.count({ where: { storyId, parentId: null as any } }),
+      comments: comments.map((comment) => {
+        const commentObj = comment.toJSON();
+        const doc = comment as any;
+        return {
+          ...commentObj,
+          id: doc._id?.toString() || commentObj.id,
+          replyCount: commentObj.repliesCount,
+          likesCount: commentObj.likesCount,
+        };
+      }),
+      total,
     };
   }
 
@@ -426,39 +454,55 @@ export class StoriesService {
    * Like/unlike a story
    */
   async toggleStoryLike(storyId: string, userId: string): Promise<any> {
+    // Check if story exists in PostgreSQL
     const story = await this.storyModel.findByPk(storyId);
     if (!story) {
       throw new HttpException('Story not found', HttpStatus.NOT_FOUND);
     }
 
-    // Check if already liked
+    // Check if already liked in PostgreSQL
     const existingLike = await this.likeModel.findOne({
       where: { storyId, userId },
     });
 
     if (existingLike) {
-      // Unlike: remove from PostgreSQL
+      // Unlike: destroy the entry in PostgreSQL
       await existingLike.destroy();
-
-      // Update count
-      await this.storyModel.update(
-        { likesCount: story.likesCount - 1 },
-        { where: { id: storyId } },
-      );
-
-      // Remove from MongoDB
-      const likeDetails = await this.storyLikeDetailsModel.findOne({ storyId });
-      if (likeDetails) {
-        likeDetails.likes = likeDetails.likes.filter(
-          (l) => l.userId !== userId,
-        );
-        likeDetails.count = likeDetails.likes.length;
-        await likeDetails.save();
+      
+      // Get total count from PostgreSQL
+      const totalLikes = await this.likeModel.count({ where: { storyId } });
+      
+      // Get first 3 likers from PostgreSQL
+      let likes: any[] = [];
+      if (totalLikes < 3) {
+        likes = await this.likeModel.findAll({
+          where: { storyId },
+          include: [{ model: User, attributes: ['id', 'name', 'dp_url', 'bio'] }],
+          order: [['createdAt', 'ASC']],
+          limit: 3,
+        });
       }
+
+
+      // Update MongoDB story aggregate
+      await this.storyAggregateModel.findOneAndUpdate(
+        { storyId },
+        {
+          $set: {
+            likesCount: totalLikes-1,
+            like: likes.map((l: any) => ({
+              name: l.user?.name || '',
+              dp_url: l.user?.dp_url || '',
+              bio: l.user?.bio || '',
+              id: l.user?.id || '',
+            })),
+          },
+        },
+      );
 
       return { liked: false };
     } else {
-      // Like: add to PostgreSQL
+      // Like: create entry in PostgreSQL
       await this.likeModel.create({ storyId, userId } as any);
 
       // Get user info
@@ -470,59 +514,51 @@ export class StoriesService {
         throw new HttpException('User not found', HttpStatus.NOT_FOUND);
       }
 
-      // Update count
-      await this.storyModel.update(
-        { likesCount: story.likesCount + 1 },
-        { where: { id: storyId } },
-      );
-
-      // Add to MongoDB (store first 3 likers with details)
-      let likeDetails = await this.storyLikeDetailsModel.findOne({ storyId });
-      if (!likeDetails) {
-        likeDetails = await this.storyLikeDetailsModel.create({
-          storyId,
-          likes: [],
-          count: 0,
-          lastUpdated: new Date(),
+      // Get total count from PostgreSQL
+      const totalLikes = await this.likeModel.count({ where: { storyId } });
+      
+      // Get first 3 likers from PostgreSQL
+      let likes: any[] = [];
+      if (totalLikes <= 3) {
+        likes = await this.likeModel.findAll({
+          where: { storyId },
+          include: [{ model: User, attributes: ['id', 'name', 'dp_url', 'bio'] }],
+          order: [['createdAt', 'ASC']],
+          limit: 3,
         });
       }
 
-      const likeEntry = {
-        userId: user.id,
-        userName: user.name,
-        userDpUrl: user.dp_url,
-        createdAt: new Date(),
-      };
-
-      // Add if not already there
-      if (
-        !likeDetails.likes.some((l) => l.userId === userId)
-      ) {
-        likeDetails.likes.unshift(likeEntry);
-        // Keep only first 3
-        if (likeDetails.likes.length > 3) {
-          likeDetails.likes = likeDetails.likes.slice(0, 3);
-        }
-        likeDetails.count = await this.likeModel.count({ where: { storyId } });
-        likeDetails.lastUpdated = new Date();
-        await likeDetails.save();
-      }
+      // Update MongoDB story aggregate
+      await this.storyAggregateModel.findOneAndUpdate(
+        { storyId },
+        {
+          $set: {
+            likesCount: totalLikes+1,
+            like: likes.map((l: any) => ({
+              name: l.user?.name || '',
+              dp_url: l.user?.dp_url || '',
+              bio: l.user?.bio || '',
+              id: l.user?.id || '',
+            })),
+          },
+        },
+      );
 
       return { liked: true };
     }
   }
 
   /**
-   * Like/unlike a comment
+   * Like/unlike a comment (from MongoDB)
    */
   async toggleCommentLike(commentId: string, userId: string): Promise<any> {
-    const comment = await this.commentModel.findByPk(commentId);
+    const comment = await this.commentMongoModel.findById(commentId);
     if (!comment) {
       throw new HttpException('Comment not found', HttpStatus.NOT_FOUND);
     }
 
-    // Check if already liked
-    const existingLike = await this.likeModel.findOne({
+    // Check if already liked in PostgreSQL (comment_likes)
+    const existingLike = await this.commentLikeModel.findOne({
       where: { commentId, userId },
     });
 
@@ -530,80 +566,162 @@ export class StoriesService {
       // Unlike: remove from PostgreSQL
       await existingLike.destroy();
 
-      // Update count
-      await this.commentModel.update(
-        { likesCount: comment.likesCount - 1 },
-        { where: { id: commentId } },
-      );
-
-      // Remove from MongoDB
-      const likeDetails = await this.commentLikeDetailsModel.findOne({
-        commentId,
+      // Update count in MongoDB
+      await this.commentMongoModel.findByIdAndUpdate(commentId, {
+        $inc: { likesCount: -1 },
       });
-      if (likeDetails) {
-        likeDetails.likes = likeDetails.likes.filter((l) => l.userId !== userId);
-        likeDetails.count = likeDetails.likes.length;
-        await likeDetails.save();
-      }
 
       return { liked: false };
     } else {
-      // Like: add to PostgreSQL
-      await this.likeModel.create({ commentId, userId } as any);
+      // Like: add to PostgreSQL (comment_likes)
+      await this.commentLikeModel.create({ commentId, userId } as any);
 
-      // Get user info
-      const user = await this.userModel.findByPk(userId, {
-        attributes: ['id', 'name', 'dp_url', 'bio'],
+      // Update count in MongoDB
+      await this.commentMongoModel.findByIdAndUpdate(commentId, {
+        $inc: { likesCount: 1 },
       });
-
-      if (!user) {
-        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-      }
-
-      // Update count
-      await this.commentModel.update(
-        { likesCount: comment.likesCount + 1 },
-        { where: { id: commentId } },
-      );
-
-      // Add to MongoDB (store first 3 likers with details)
-      let likeDetails = await this.commentLikeDetailsModel.findOne({
-        commentId,
-      });
-      if (!likeDetails) {
-        likeDetails = await this.commentLikeDetailsModel.create({
-          commentId,
-          likes: [],
-          count: 0,
-          lastUpdated: new Date(),
-        });
-      }
-
-      const likeEntry = {
-        userId: user.id,
-        userName: user.name,
-        userDpUrl: user.dp_url,
-        createdAt: new Date(),
-      };
-
-      // Add if not already there
-      if (
-        !likeDetails.likes.some((l) => l.userId === userId)
-      ) {
-        likeDetails.likes.unshift(likeEntry);
-        // Keep only first 3
-        if (likeDetails.likes.length > 3) {
-          likeDetails.likes = likeDetails.likes.slice(0, 3);
-        }
-        likeDetails.count = await this.likeModel.count({
-          where: { commentId },
-        });
-        likeDetails.lastUpdated = new Date();
-        await likeDetails.save();
-      }
 
       return { liked: true };
     }
+  }
+
+  /**
+   * Add a content block to a story
+   */
+  async addStoryBlock(
+    storyId: string,
+    userId: string,
+    createBlockDto: CreateStoryBlockDto,
+  ): Promise<any> {
+    // Verify story exists and user owns it
+    const story = await this.storyModel.findByPk(storyId);
+    if (!story) {
+      throw new HttpException('Story not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (story.authorId !== userId) {
+      throw new HttpException(
+        'Forbidden: You can only add blocks to your own stories',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Get author details
+    const author = await this.userModel.findByPk(userId, {
+      attributes: ['id', 'name', 'dp_url', 'bio'],
+    });
+
+    if (!author) {
+      throw new HttpException('Author not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Create the block
+    const block = await this.storyBlockModel.create({
+      storyId,
+      orderNo: createBlockDto.orderNo,
+      authorId: userId,
+      authorDetails: {
+        name: author.name,
+        dp_url: author.dp_url,
+        bio: author.bio,
+      },
+      type: createBlockDto.type,
+      content: createBlockDto.content,
+      mongoId: createBlockDto.mongoId,
+      metadata: {
+        lastEdited: new Date(),
+      },
+    });
+
+    return block.toJSON();
+  }
+
+  /**
+   * Update a story block
+   */
+  async updateStoryBlock(
+    blockId: string,
+    userId: string,
+    updateBlockDto: UpdateStoryBlockDto,
+  ): Promise<any> {
+    const block = await this.storyBlockModel.findById(blockId);
+    if (!block) {
+      throw new HttpException('Block not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Verify user owns the block
+    if (block.authorId !== userId) {
+      throw new HttpException(
+        'Forbidden: You can only update your own blocks',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Update only content and type
+    if (updateBlockDto.type !== undefined) {
+      block.type = updateBlockDto.type;
+    }
+    if (updateBlockDto.content !== undefined) {
+      block.content = updateBlockDto.content;
+    }
+    
+    // Update last edited timestamp
+    block.metadata = {
+      ...block.metadata,
+      lastEdited: new Date(),
+    };
+
+    await block.save();
+    return block.toJSON();
+  }
+
+  /**
+   * Get all blocks for a story with pagination
+   */
+  async getStoryBlocks(
+    storyId: string,
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<{ blocks: any[]; total: number }> {
+    // Verify story exists
+    const story = await this.storyModel.findByPk(storyId);
+    if (!story) {
+      throw new HttpException('Story not found', HttpStatus.NOT_FOUND);
+    }
+
+    const blocks = await this.storyBlockModel
+      .find({ storyId })
+      .sort({ orderNo: 1 }) // Sort by orderNo ascending
+      .limit(limit)
+      .skip(offset)
+      .exec();
+
+    const total = await this.storyBlockModel.countDocuments({ storyId });
+
+    return {
+      blocks: blocks.map((block) => block.toJSON()),
+      total,
+    };
+  }
+
+  /**
+   * Delete a story block
+   */
+  async deleteStoryBlock(blockId: string, userId: string): Promise<void> {
+    const block = await this.storyBlockModel.findById(blockId);
+    if (!block) {
+      throw new HttpException('Block not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Verify user owns the block
+    if (block.authorId !== userId) {
+      throw new HttpException(
+        'Forbidden: You can only delete your own blocks',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    await this.storyBlockModel.deleteOne({ _id: blockId });
   }
 }
 

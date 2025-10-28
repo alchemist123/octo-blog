@@ -28,31 +28,5 @@ export class UpdateStoryDto {
   @IsArray()
   @IsString({ each: true })
   hashtags?: string[];
-
-  @ApiPropertyOptional({ description: 'Post type', enum: ['self', 'mushroom'] })
-  @IsOptional()
-  @IsEnum(['self', 'mushroom'])
-  postType?: 'self' | 'mushroom';
-
-  @ApiPropertyOptional({ description: 'Story type', enum: ['tutorial', 'blog'] })
-  @IsOptional()
-  @IsEnum(['tutorial', 'blog'])
-  storyType?: 'tutorial' | 'blog';
-
-  @ApiPropertyOptional({ description: 'Story status', enum: ['draft', 'requested', 'published'] })
-  @IsOptional()
-  @IsEnum(['draft', 'requested', 'published'])
-  status?: 'draft' | 'requested' | 'published';
-
-  @ApiPropertyOptional({ description: 'Sentimental score', example: 0.85 })
-  @IsOptional()
-  @IsNumber()
-  sentimentalScore?: number;
-
-  @ApiPropertyOptional({ description: 'Rich content object', type: Object, additionalProperties: true })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => Object)
-  content?: any;
 }
 

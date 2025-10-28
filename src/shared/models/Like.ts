@@ -11,7 +11,6 @@ import {
 } from 'sequelize-typescript';
 import { User } from './User';
 import { Story } from './Story';
-import { Comment } from './Comment';
 
 @Table({ tableName: 'likes', schema: 'storie' })
 export class Like extends Model<Like> {
@@ -28,13 +27,9 @@ export class Like extends Model<Like> {
   @BelongsTo(() => Story)
   declare story: Story;
 
-  @ForeignKey(() => Comment)
   @AllowNull(true)
   @Column(DataType.UUID)
-  declare commentId: string;
-
-  @BelongsTo(() => Comment)
-  declare comment: Comment;
+  declare commentId: string; // MongoDB comment ID
 
   @ForeignKey(() => User)
   @Column(DataType.UUID)
