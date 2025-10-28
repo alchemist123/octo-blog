@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 import { ExpressAdapter } from '@nestjs/platform-express';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import express from 'express';
 
@@ -24,6 +25,21 @@ async function createApp() {
   );
 
   await app.init();
+  
+  // Setup Swagger
+  const config = new DocumentBuilder()
+    .setTitle('TPD Backend API')
+    .setDescription('The TPD Backend API Documentation')
+    .setVersion('1.0')
+    .addTag('auth', 'Authentication endpoints')
+    .addTag('user', 'User management endpoints')
+    .addTag('mushroom', 'Mushroom management endpoints')
+    .addTag('system', 'System endpoints')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
+  
   return expressApp;
 }
 
@@ -49,8 +65,23 @@ async function bootstrap() {
     }),
   );
 
+  // Setup Swagger
+  const config = new DocumentBuilder()
+    .setTitle('TPD Backend API')
+    .setDescription('The TPD Backend API Documentation')
+    .setVersion('1.0')
+    .addTag('auth', 'Authentication endpoints')
+    .addTag('user', 'User management endpoints')
+    .addTag('mushroom', 'Mushroom management endpoints')
+    .addTag('system', 'System endpoints')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
+
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
+  console.log(`Swagger documentation available at: http://localhost:${port}/api`);
 }
 
 // Only run bootstrap in development

@@ -8,6 +8,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { signupDto, loginDto } from './dto/sign';
 import { errorHandler } from '../shared/middlewares/error-handler';
@@ -16,9 +17,7 @@ import { GitHubAuthGuard } from './guards/github.guard';
 import { GitLabAuthGuard } from './guards/gitlab.guard';
 import { OtpService } from '../shared/utilities/otp.service';
 import { GenerateOtpDto } from './dto/generate-otp.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { OtpVerificationInterceptor } from '../shared/interceptors/otp-verification.interceptor';
-
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -28,7 +27,10 @@ export class AuthController {
   ) {}
 
   @Post('/signup')
-  @UseInterceptors(OtpVerificationInterceptor)
+  @ApiOperation({ summary: 'Register a new user' })
+  @ApiResponse({ status: 201, description: 'User successfully registered' })
+  @ApiResponse({ status: 409, description: 'User already exists' })
+  @ApiBody({ type: signupDto })
   async registerUser(@Body() body: signupDto, @Res() res: any) {
     try {
       const result = await this.authService.registerUser(body);
@@ -42,7 +44,10 @@ export class AuthController {
   }
 
   @Post('/login')
-  @UseInterceptors(OtpVerificationInterceptor)
+  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiBody({ type: loginDto })
   async login(@Body() body: loginDto, @Res() res: any) {
     try {
       const result = await this.authService.login(body);
@@ -120,6 +125,10 @@ export class AuthController {
 
   // OTP Endpoints
   @Post('/generate-otp')
+  @ApiOperation({ summary: 'Generate OTP for email verification' })
+  @ApiResponse({ status: 200, description: 'OTP generated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request' })
+  @ApiBody({ type: GenerateOtpDto })
   async generateOtp(@Body() body: GenerateOtpDto, @Res() res: any) {
     try {
       const otpCode = await this.otpService.generateOtp(body.email, body.type as any);
@@ -127,7 +136,6 @@ export class AuthController {
       // In production, send OTP via email/SMS
       // For now, return it in response (remove in production)
       console.log(`OTP for ${body.email} (${body.type}): ${otpCode}`);
-      
       return res.json({
         message: 'OTP generated successfully',
         // Remove this in production - only return OTP in email/SMS
