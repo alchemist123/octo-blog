@@ -3,10 +3,16 @@
         "username": "postgres",
         "password": "postgres123",
         "database": "blog",
-        "host": "127.0.0.1",
+        "host": "localhost",
         "dialect": "postgres",
         "port": 5432,
-        "logging": false
+        "logging": false,
+        "pool": {
+          "max": 5,
+          "min": 0,
+          "acquire": 30000,
+          "idle": 10000
+        }
       },
     "test": {
       "username": "root",

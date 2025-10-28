@@ -134,7 +134,7 @@ export class AuthController {
 
   // OTP Endpoints
   @Post('/generate-otp')
-  @Throttle({ short: { ttl: 60000, limit: 3 } }) // 3 OTP requests per minute
+  // @Throttle({ short: { ttl: 60000, limit: 3 } }) // 3 OTP requests per minute
   @ApiOperation({ summary: 'Generate OTP for email verification (Rate: 3 per minute)' })
   @ApiResponse({ status: 200, description: 'OTP generated successfully' })
   @ApiResponse({ status: 400, description: 'Invalid request' })

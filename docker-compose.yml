@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres123
     ports:
-      - "5432:5432"
+      - "5433:5432"
     expose:
       - "5432"
     volumes:
@@ -27,8 +27,8 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin123
       PGADMIN_CONFIG_SERVER_MODE: 'False'
-    expose:
-      - "80"
+    ports:
+      - "5050:5050"
     depends_on:
       - postgres
     networks:
@@ -49,13 +49,32 @@ services:
       POSTGRES_USERNAME: postgres
       POSTGRES_PASSWORD: postgres123
       POSTGRES_DATABASE: blog
+      MONGODB_URI: mongodb://mongouser:mongopass123@localhost:27017/blog?authSource=admin
       JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
     depends_on:
       - postgres
+      - mongodb
     networks:
       - blog-network
     volumes:
       - ./uploads:/app/uploads
+
+  # MongoDB
+  mongodb:
+    image: mongo:7.0
+    container_name: blog-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongouser
+      MONGO_INITDB_ROOT_PASSWORD: mongopass123
+      MONGO_INITDB_DATABASE: blog
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - blog-network
+    command: mongod --wiredTigerCacheSizeGB 0.5
 
   # Redis (optional, for caching)
   redis:
@@ -72,6 +91,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  mongodb_data:
 
 networks:
   blog-network:

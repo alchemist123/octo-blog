@@ -9,11 +9,21 @@ export const options: SequelizeOptions = {
   password: process.env.POSTGRES_PASSWORD as string,
   database: process.env.POSTGRES_DATABASE as string,
   models: Models,
-  logging: console.log,
-  dialectOptions: process.env.POSTGRES_SSL === 'true' ? {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,
-    },
-  } : {},
+  logging: false,
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 60000,
+    idle: 10000,
+    evict: 5000,
+  },
+  dialectOptions: {
+    connectTimeout: 60000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
+  },
+  retry: {
+    max: 5,
+  },
 };
+

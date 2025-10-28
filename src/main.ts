@@ -21,6 +21,10 @@ async function createApp() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      skipMissingProperties: true,
     }),
   );
 
@@ -28,16 +32,35 @@ async function createApp() {
   
   // Setup Swagger
   const config = new DocumentBuilder()
-    .setTitle('TPD Backend API')
-    .setDescription('The TPD Backend API Documentation')
+    .setTitle('Blog Backend API')
+    .setDescription('The Blog Backend API Documentation')
     .setVersion('1.0')
     .addTag('auth', 'Authentication endpoints')
     .addTag('user', 'User management endpoints')
     .addTag('mushroom', 'Mushroom management endpoints')
     .addTag('system', 'System endpoints')
-    .addBearerAuth()
+    .addApiKey({
+      type: 'apiKey',
+      name: 'x-access-token',
+      in: 'header',
+      description: 'JWT token passed via x-access-token header',
+    }, 'x-access-token')
     .build();
   const document = SwaggerModule.createDocument(app, config);
+  
+  // Add global security to all endpoints
+  const paths = document.paths || {};
+  Object.keys(paths).forEach((pathKey) => {
+    const path = paths[pathKey];
+    if (path) {
+      Object.keys(path).forEach((methodKey) => {
+        if (path[methodKey] && !path[methodKey].security) {
+          path[methodKey].security = [{ 'x-access-token': [] }];
+        }
+      });
+    }
+  });
+  
   SwaggerModule.setup('api', app, document);
   
   return expressApp;
@@ -62,6 +85,10 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      skipMissingProperties: true,
     }),
   );
 
@@ -74,9 +101,28 @@ async function bootstrap() {
     .addTag('user', 'User management endpoints')
     .addTag('mushroom', 'Mushroom management endpoints')
     .addTag('system', 'System endpoints')
-    .addBearerAuth()
+    .addApiKey({
+      type: 'apiKey',
+      name: 'x-access-token',
+      in: 'header',
+      description: 'JWT token passed via x-access-token header',
+    }, 'x-access-token')
     .build();
   const document = SwaggerModule.createDocument(app, config);
+  
+  // Add global security to all endpoints
+  const paths = document.paths || {};
+  Object.keys(paths).forEach((pathKey) => {
+    const path = paths[pathKey];
+    if (path) {
+      Object.keys(path).forEach((methodKey) => {
+        if (path[methodKey] && !path[methodKey].security) {
+          path[methodKey].security = [{ 'x-access-token': [] }];
+        }
+      });
+    }
+  });
+  
   SwaggerModule.setup('api', app, document);
 
   await app.listen(port);
