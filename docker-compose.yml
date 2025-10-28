@@ -10,6 +10,8 @@ services:
       POSTGRES_PASSWORD: postgres123
     ports:
       - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -25,42 +27,43 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin123
       PGADMIN_CONFIG_SERVER_MODE: 'False'
-    ports:
-      - "5050:80"
+    expose:
+      - "80"
     depends_on:
       - postgres
     networks:
       - blog-network
 
   # NestJS Application
-  # app:
-  #   build: .
-  #   container_name: blog-backend
-  #   restart: unless-stopped
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     NODE_ENV: production
-  #     POSTGRES_HOST: postgres
-  #     POSTGRES_PORT: 5432
-  #     POSTGRES_USERNAME: postgres
-  #     POSTGRES_PASSWORD: postgres123
-  #     POSTGRES_DATABASE: blog
-  #     JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
-  #   depends_on:
-  #     - postgres
-  #   networks:
-  #     - blog-network
-  #   volumes:
-  #     - ./uploads:/app/uploads
+  app:
+    build: .
+    container_name: blog-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DATABASE: blog
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+    depends_on:
+      - postgres
+    networks:
+      - blog-network
+    volumes:
+      - ./uploads:/app/uploads
 
   # Redis (optional, for caching)
   redis:
     image: redis:7-alpine
     container_name: blog-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
     networks:

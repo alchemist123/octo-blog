@@ -10,10 +10,10 @@ export const options: SequelizeOptions = {
   database: process.env.POSTGRES_DATABASE as string,
   models: Models,
   logging: console.log,
-  dialectOptions: {
+  dialectOptions: process.env.POSTGRES_SSL === 'true' ? {
     ssl: {
       require: true,
       rejectUnauthorized: false,
     },
-  },
+  } : {},
 };

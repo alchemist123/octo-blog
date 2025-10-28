@@ -1,18 +1,12 @@
 {
     "development": {
-        "username": "neondb_owner",
-        "password": "npg_40wIgGsqaOny",
+        "username": "postgres",
+        "password": "postgres123",
         "database": "blog",
-        "host": "ep-young-field-ad8rccia-pooler.c-2.us-east-1.aws.neon.tech",
+        "host": "127.0.0.1",
         "dialect": "postgres",
         "port": 5432,
-        "logging": false,
-        "dialectOptions": {
-            "ssl": {
-                "require": true,
-                "rejectUnauthorized": false
-            }
-        }
+        "logging": false
       },
     "test": {
       "username": "root",
