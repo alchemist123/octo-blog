@@ -8,6 +8,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { signupDto, loginDto } from './dto/sign';
@@ -17,7 +18,6 @@ import { GitHubAuthGuard } from './guards/github.guard';
 import { GitLabAuthGuard } from './guards/gitlab.guard';
 import { OtpService } from '../shared/utilities/otp.service';
 import { GenerateOtpDto } from './dto/generate-otp.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { OtpVerificationInterceptor } from '../shared/interceptors/otp-verification.interceptor';
 @ApiTags('auth')
 @Controller('auth')
@@ -29,9 +29,11 @@ export class AuthController {
   ) {}
 
   @Post('/signup')
-  @ApiOperation({ summary: 'Register a new user' })
+  @Throttle({ short: { ttl: 60000, limit: 3 } }) // 3 signups per minute
+  @ApiOperation({ summary: 'Register a new user (Rate: 3 per minute)' })
   @ApiResponse({ status: 201, description: 'User successfully registered' })
   @ApiResponse({ status: 409, description: 'User already exists' })
+  @ApiResponse({ status: 429, description: 'Too many signup attempts' })
   @ApiBody({ type: signupDto })
   async registerUser(@Body() body: signupDto, @Res() res: any) {
     try {
@@ -46,9 +48,11 @@ export class AuthController {
   }
 
   @Post('/login')
-  @ApiOperation({ summary: 'Login with email, password and OTP' })
+  @Throttle({ short: { ttl: 60000, limit: 5 } }) // 5 login attempts per minute
+  @ApiOperation({ summary: 'Login with email, password and OTP (Rate: 5 per minute)' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials or OTP' })
+  @ApiResponse({ status: 429, description: 'Too many login attempts' })
   @ApiBody({ type: loginDto })
   @UseInterceptors(OtpVerificationInterceptor)
   async login(@Body() body: loginDto, @Req() req: any, @Res() res: any) {
@@ -130,9 +134,11 @@ export class AuthController {
 
   // OTP Endpoints
   @Post('/generate-otp')
-  @ApiOperation({ summary: 'Generate OTP for email verification' })
+  @Throttle({ short: { ttl: 60000, limit: 3 } }) // 3 OTP requests per minute
+  @ApiOperation({ summary: 'Generate OTP for email verification (Rate: 3 per minute)' })
   @ApiResponse({ status: 200, description: 'OTP generated successfully' })
   @ApiResponse({ status: 400, description: 'Invalid request' })
+  @ApiResponse({ status: 429, description: 'Too many OTP requests' })
   @ApiBody({ type: GenerateOtpDto })
   async generateOtp(@Body() body: GenerateOtpDto, @Res() res: any) {
     try {

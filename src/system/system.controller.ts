@@ -7,6 +7,7 @@ import {
   Query,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SystemService } from './system.service';
 import { FileUploadService } from '../shared/utilities/fileUploads';
@@ -20,11 +21,13 @@ export class SystemController {
   ) {}
 
   @Get('health')
+  @Throttle({ short: { ttl: 1000, limit: 30 } }) // 30 requests per second
   getHealth(): any {
     return this.systemService.getHealth();
   }
 
   @Get('topics')
+  @Throttle({ medium: { ttl: 10000, limit: 10 } })
   async getTopics() {
     return await this.systemService.getCategoriesWithTopics();
   }

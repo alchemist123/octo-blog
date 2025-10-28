@@ -39,6 +39,7 @@
     "@nestjs/schedule": "^6.0.1",
     "@nestjs/sequelize": "^11.0.1",
     "@nestjs/swagger": "^11.2.1",
+    "@nestjs/throttler": "^6.4.0",
     "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/multer": "^2.0.0",

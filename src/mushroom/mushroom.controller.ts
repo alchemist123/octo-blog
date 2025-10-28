@@ -12,6 +12,7 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { MushroomService } from './mushroom.service';
 import { CreateMushroomDto } from './dto/create-mushroom.dto';
 import { UpdateMushroomDto } from './dto/update-mushroom.dto';
@@ -24,6 +25,7 @@ export class MushroomController {
   constructor(private readonly mushroomService: MushroomService) {}
 
   @Get('')
+  @Throttle({ medium: { ttl: 10000, limit: 20 } })
   @UseGuards(JwtAuthGuard)
   async getAll(
     @Query() filter: FilterMushroomDto,
@@ -33,6 +35,7 @@ export class MushroomController {
   }
 
   @Get(':id')
+  @Throttle({ medium: { ttl: 10000, limit: 20 } })
   @UseGuards(JwtAuthGuard)
   async getById(@Param('id') id: string): Promise<{ mushroom: any }> {
     const mushroom = await this.mushroomService.findById(id);
@@ -163,6 +166,7 @@ export class MushroomController {
   }
 
   @Get(':id/admins')
+  @Throttle({ medium: { ttl: 10000, limit: 15 } })
   @UseGuards(JwtAuthGuard)
   async getAdmins(
     @Param('id') id: string,
@@ -190,6 +194,7 @@ export class MushroomController {
   }
 
   @Get(':id/subscribers/pending')
+  @Throttle({ medium: { ttl: 10000, limit: 15 } })
   @UseGuards(JwtAuthGuard)
   async getPendingSubscribers(
     @Param('id') id: string,
@@ -272,6 +277,7 @@ export class MushroomController {
     return { message: 'Subscription rejected successfully' };
   }
   @Get(':id/subscribers/joined')
+  @Throttle({ medium: { ttl: 10000, limit: 15 } })
   @UseGuards(JwtAuthGuard)
   async getJoinedSubscribers(
     @Param('id') id: string,
