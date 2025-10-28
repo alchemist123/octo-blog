@@ -62,12 +62,16 @@ export class loginDto {
   @IsString()
   public password: string;
 
-  @ApiProperty({ example: '123456', description: 'OTP code' })
+  @ApiProperty({ example: '123456', description: '6-digit OTP code' })
   @IsNotEmpty()
   @IsString()
   public otpCode: string;
 
-  @ApiProperty({ example: 'login', description: 'OTP type' })
+  @ApiProperty({ 
+    example: 'login', 
+    enum: ['login', 'signup', 'reset-password', 'change-email', 'verify-email'],
+    description: 'Type of OTP request' 
+  })
   @IsNotEmpty()
   @IsString()
   public type: string;

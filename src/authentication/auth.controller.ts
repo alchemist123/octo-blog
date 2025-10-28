@@ -17,6 +17,8 @@ import { GitHubAuthGuard } from './guards/github.guard';
 import { GitLabAuthGuard } from './guards/gitlab.guard';
 import { OtpService } from '../shared/utilities/otp.service';
 import { GenerateOtpDto } from './dto/generate-otp.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { OtpVerificationInterceptor } from '../shared/interceptors/otp-verification.interceptor';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -44,13 +46,16 @@ export class AuthController {
   }
 
   @Post('/login')
-  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiOperation({ summary: 'Login with email, password and OTP' })
   @ApiResponse({ status: 200, description: 'Login successful' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials or OTP' })
   @ApiBody({ type: loginDto })
-  async login(@Body() body: loginDto, @Res() res: any) {
+  @UseInterceptors(OtpVerificationInterceptor)
+  async login(@Body() body: loginDto, @Req() req: any, @Res() res: any) {
     try {
-      const result = await this.authService.login(body);
+      // Use verified email from interceptor
+      const updatedBody = { ...body, email: req.verifiedEmail };
+      const result = await this.authService.login(updatedBody);
       return res.setHeader('x-access-token', result.token).json({
         message: 'Login successful',
         user: result.user,
@@ -145,4 +150,5 @@ export class AuthController {
       return this.errorHandler.handle(res, error);
     }
   }
+
 }
