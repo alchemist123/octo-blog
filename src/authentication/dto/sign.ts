@@ -61,4 +61,14 @@ export class loginDto {
   @IsNotEmpty()
   @IsString()
   public password: string;
+
+  @ApiProperty({ example: '123456', description: 'OTP code' })
+  @IsNotEmpty()
+  @IsString()
+  public otpCode: string;
+
+  @ApiProperty({ example: 'login', description: 'OTP type' })
+  @IsNotEmpty()
+  @IsString()
+  public type: string;
 }
