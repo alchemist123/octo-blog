@@ -8,5 +8,6 @@ import { Story } from './Story';
 import { Like } from './Like';
 import { CommentLike } from './CommentLike';
 import { UserSubscription } from './UserSubscription';
+import { SavedStory } from './SavedStory';
 
-export const Models = [User, Mushroom, Subscriber, MushroomAdmin, Topic, Otp, Story, Like, CommentLike, UserSubscription];
+export const Models = [User, Mushroom, Subscriber, MushroomAdmin, Topic, Otp, Story, Like, CommentLike, UserSubscription, SavedStory];

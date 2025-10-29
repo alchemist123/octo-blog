@@ -14,6 +14,7 @@ import { CommentLike } from '../shared/models/CommentLike';
 import { User } from '../shared/models/User';
 import { Mushroom } from '../shared/models/Mushroom';
 import { MushroomAdmin } from '../shared/models/MushroomAdmin';
+import { SavedStory } from '../shared/models/SavedStory';
 import { CreateStoryDto } from './dto/create-story.dto';
 import { UpdateStoryDto } from './dto/update-story.dto';
 import { FilterStoryDto } from './dto/filter-story.dto';
@@ -38,6 +39,7 @@ export class StoriesService {
     @InjectModel(Story) private readonly storyModel: typeof Story,
     @InjectModel(Like) private readonly likeModel: typeof Like,
     @InjectModel(CommentLike) private readonly commentLikeModel: typeof CommentLike,
+    @InjectModel(SavedStory) private readonly savedStoryModel: typeof SavedStory,
     @InjectModel(User) private readonly userModel: typeof User,
     @InjectModel(Mushroom) private readonly mushroomModel: typeof Mushroom,
     @InjectModel(MushroomAdmin) private readonly mushroomAdminModel: typeof MushroomAdmin,
@@ -631,6 +633,67 @@ export class StoriesService {
 
       return { liked: true };
     }
+  }
+
+  /**
+   * Save/unsave a story to user's library
+   */
+  async toggleStorySave(storyId: string, userId: string): Promise<{ saved: boolean }> {
+    const story = await this.storyModel.findByPk(storyId);
+    if (!story) {
+      throw new HttpException('Story not found', HttpStatus.NOT_FOUND);
+    }
+
+    const existing = await this.savedStoryModel.findOne({ where: { storyId, userId } });
+    if (existing) {
+      await existing.destroy();
+      return { saved: false };
+    }
+
+    await this.savedStoryModel.create({ storyId, userId } as any);
+    return { saved: true };
+  }
+
+  /**
+   * Get authenticated user's saved library
+   */
+  async getMyLibrary(userId: string, page = 1, size = 10): Promise<{ stories: any[]; total: number }> {
+    const limit = Math.max(1, Math.min(50, Number(size)));
+    const offset = (Math.max(1, Number(page)) - 1) * limit;
+
+    const { rows, count } = await this.savedStoryModel.findAndCountAll({
+      where: { userId },
+      include: [
+        {
+          model: Story,
+          required: true,
+          attributes: [
+            'id',
+            'title',
+            'type',
+            'thumbnails_url',
+            'tagLine',
+            'hashtags',
+            'authorId',
+            'mushroomId',
+            'postType',
+            'storyType',
+            'status',
+            'likesCount',
+            'commentsCount',
+            'viewsCount',
+            'createdAt',
+            'updatedAt',
+          ],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset,
+    });
+
+    const stories = rows.map((r: any) => r.story);
+    return { stories, total: count };
   }
 
   /**

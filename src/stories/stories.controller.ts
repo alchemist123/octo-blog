@@ -19,7 +19,6 @@ import { UpdateStoryDto } from './dto/update-story.dto';
 import { FilterStoryDto } from './dto/filter-story.dto';
 import { MyStoriesFilterDto } from './dto/my-stories-filter.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
-import { CreateLikeDto } from './dto/create-like.dto';
 import { CreateStoryBlockDto } from './dto/create-story-block.dto';
 import { UpdateStoryBlockDto } from './dto/update-story-block.dto';
 import { JwtAuthGuard } from '../authentication/guards/jwt.guard';
@@ -413,6 +412,50 @@ export class StoriesController {
   }
 
   /**
+   * Save/unsave a story to user's library
+   */
+  @Post(':id/save')
+  @Throttle({ medium: { ttl: 10000, limit: 30 } })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Save/unsave a story' })
+  @ApiOkResponse({ description: 'Toggles save status' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiNotFoundResponse({ description: 'Story not found' })
+  async saveStory(
+    @Param('id') id: string,
+    @Req() request: any,
+  ): Promise<{ saved: boolean; message: string }> {
+    const user = request.user;
+    const result = await this.storiesService.toggleStorySave(id, user.id);
+    return {
+      ...result,
+      message: result.saved ? 'Story saved' : 'Story unsaved',
+    };
+  }
+
+  /**
+   * Get my saved library
+   */
+  @Get('library')
+  @Throttle({ medium: { ttl: 10000, limit: 30 } })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get authenticated user\'s saved library' })
+  @ApiOkResponse({ description: 'Returns paginated saved stories' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  async getMyLibrary(
+    @Req() request: any,
+    @Query('page') page = '1',
+    @Query('size') size = '10',
+  ): Promise<{ stories: any[]; total: number; page: number; size: number }> {
+    const user = request.user;
+    const result = await this.storiesService.getMyLibrary(user.id, Number(page), Number(size));
+    return {
+      ...result,
+      page: Number(page) || 1,
+      size: Number(size) || 10,
+    };
+  }
+  /**
    * Like/unlike a comment
    */
   @Post('comments/:commentId/like')
@@ -477,5 +520,6 @@ export class StoriesController {
     await this.storiesService.deleteStoryBlock(blockId, user.id);
     return { message: 'Story block deleted successfully' };
   }
+  
 }
 
