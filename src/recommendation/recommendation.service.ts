@@ -45,6 +45,76 @@ export class RecommendationService {
   ) {}
 
   /**
+   * Get random feed for unauthenticated users
+   * NOTE: This cache is shared across ALL anonymous users (not user-specific)
+   */
+  async getRandomFeed(
+    page: number = 1,
+    size: number = 20,
+  ): Promise<{ stories: any[]; total: number }> {
+    const limit = Math.max(1, Math.min(50, Number(size)));
+    const offset = (Math.max(1, Number(page)) - 1) * limit;
+
+    // Cache key is shared for all anonymous users (not user-specific)
+    const cacheKey = `feed:anonymous:${page}:${size}`;
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache hit for random feed`);
+      return cached as { stories: any[]; total: number };
+    }
+
+    // Get random published stories (only open mushrooms for anonymous users)
+    const stories = await this.storyModel.findAll({
+      where: {
+        status: 'published',
+      },
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'name', 'dp_url', 'bio', 'subscribersCount', 'interests'],
+        },
+        {
+          model: Mushroom,
+          attributes: ['id', 'name', 'description', 'status', 'type', 'dp_url', 'subscribers'],
+        },
+      ],
+      limit: limit * 2, // Get more for filtering
+      order: [['createdAt', 'DESC']], // Order by newest first
+    });
+
+    // Filter out closed mushroom stories for anonymous users
+    const filteredStories = stories
+      .map((story: any) => story.toJSON())
+      .filter((story: any) => {
+        if (story.mushroomId && story.mushroom && story.mushroom.status === 'closed') {
+          return false; // Hide closed mushrooms for anonymous users
+        }
+        return true;
+      });
+
+    // Shuffle for randomness (Fisher-Yates shuffle)
+    for (let i = filteredStories.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [filteredStories[i], filteredStories[j]] = [filteredStories[j], filteredStories[i]];
+    }
+
+    // Apply pagination
+    const total = filteredStories.length;
+    const paginatedStories = filteredStories.slice(offset, offset + limit);
+
+    const result = {
+      stories: paginatedStories,
+      total,
+    };
+
+    // Cache result for 5 minutes
+    await this.cacheManager.set(cacheKey, result, 300);
+
+    return result;
+  }
+
+  /**
    * Get personalized feed for user (OPTIMIZED with precomputed recommendations)
    */
   async getPersonalizedFeed(
@@ -575,6 +645,83 @@ export class RecommendationService {
     const users = Array.from(this.recomputeQueue);
     this.recomputeQueue.clear(); // Clear after reading
     return users;
+  }
+
+  /**
+   * Get popular users for unauthenticated users
+   * Returns users ordered by subscriber count
+   * NOTE: This cache is shared across ALL anonymous users (not user-specific)
+   */
+  async getPopularUsers(limit: number = 10): Promise<any[]> {
+    // Cache key is shared for all anonymous users (not user-specific)
+    const cacheKey = `popular:users:anonymous:${limit}`;
+    
+    // Try to get from cache
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache hit for popular users`);
+      return cached as any[];
+    }
+
+    const users = await this.userModel.findAll({
+      attributes: [
+        'id',
+        'name',
+        'userName',
+        'dp_url',
+        'bio',
+        'interests',
+        'subscribersCount',
+      ],
+      limit: limit,
+      order: [['subscribersCount', 'DESC']],
+    });
+
+    const result = users.map((u: any) => ({
+      ...u.toJSON(),
+      score: Math.log10((u.subscribersCount || 0) + 1) * 10, // Calculate score based on subscribers
+    }));
+
+    // Cache for 10 minutes
+    await this.cacheManager.set(cacheKey, result, 600);
+
+    return result;
+  }
+
+  /**
+   * Get popular mushrooms for unauthenticated users
+   * Returns open mushrooms ordered by subscriber count
+   * NOTE: This cache is shared across ALL anonymous users (not user-specific)
+   */
+  async getPopularMushrooms(limit: number = 10): Promise<any[]> {
+    // Cache key is shared for all anonymous users (not user-specific)
+    const cacheKey = `popular:mushrooms:anonymous:${limit}`;
+    
+    // Try to get from cache
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache hit for popular mushrooms`);
+      return cached as any[];
+    }
+
+    const mushrooms = await this.mushroomModel.findAll({
+      where: {
+        status: 'open', // Only show open mushrooms to unauthenticated users
+      },
+      attributes: ['id', 'name', 'description', 'type', 'dp_url', 'subscribers', 'status'],
+      limit: limit,
+      order: [['subscribers', 'DESC']],
+    });
+
+    const result = mushrooms.map((m: any) => ({
+      ...m.toJSON(),
+      score: Math.log10((m.subscribers || 0) + 1) * 10, // Calculate score based on subscribers
+    }));
+
+    // Cache for 10 minutes
+    await this.cacheManager.set(cacheKey, result, 600);
+
+    return result;
   }
 }
 

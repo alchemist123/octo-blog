@@ -25,6 +25,8 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { CreateStoryBlockDto } from './dto/create-story-block.dto';
 import { UpdateStoryBlockDto } from './dto/update-story-block.dto';
 import { JwtAuthGuard } from '../authentication/guards/jwt.guard';
+import { OptionalJwtAuthGuard } from '../authentication/guards/optional-jwt.guard';
+import { RecommendationCacheInterceptor } from '../shared/interceptors/recommendation-cache.interceptor';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -463,23 +465,40 @@ export class StoriesController {
   }
 
   /**
-   * Get personalized feed
+   * Get feed - personalized if authenticated, random if not
    */
   @Get('feed')
   @Throttle({ medium: { ttl: 10000, limit: 30 } })
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(RedisCacheInterceptor)
-  @ApiOperation({ summary: 'Get personalized feed of stories' })
-  @ApiOkResponse({ description: 'Returns personalized feed with recommendations' })
-  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  async getPersonalizedFeed(
+  @UseGuards(OptionalJwtAuthGuard)
+  @UseInterceptors(RecommendationCacheInterceptor)
+  @ApiOperation({ 
+    summary: 'Get feed of stories',
+    description: 'Returns personalized feed if authenticated, otherwise returns random feed. Token is optional.'
+  })
+  @ApiOkResponse({ description: 'Returns feed with stories' })
+  async getFeed(
     @Req() request: any,
     @Query('page') page = '1',
     @Query('size') size = '20',
   ): Promise<{ stories: any[]; total: number; page: number; size: number }> {
     const user = request.user;
-    const result = await this.recommendationService.getPersonalizedFeed(
-      user.id,
+    
+    // If user is authenticated, return personalized feed
+    if (user && user.id) {
+      const result = await this.recommendationService.getPersonalizedFeed(
+        user.id,
+        Number(page) || 1,
+        Number(size) || 20,
+      );
+      return {
+        ...result,
+        page: Number(page) || 1,
+        size: Number(size) || 20,
+      };
+    }
+    
+    // Otherwise, return random feed
+    const result = await this.recommendationService.getRandomFeed(
       Number(page) || 1,
       Number(size) || 20,
     );

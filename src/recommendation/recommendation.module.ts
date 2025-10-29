@@ -11,6 +11,7 @@ import { Mushroom } from '../shared/models/Mushroom';
 import { RecommendationService } from './recommendation.service';
 import { RecommendationComputeService } from './recommendation-compute.service';
 import { RecommendationSchedulerService } from './recommendation-scheduler.service';
+import { RecommendationController } from './recommendation.controller';
 import { StoryAggregate, StoryAggregateSchema } from '../stories/schemas/story-aggregate.schema';
 import {
   UserRecommendation,
@@ -36,6 +37,7 @@ import {
       'blog',
     ),
   ],
+  controllers: [RecommendationController],
   providers: [
     RecommendationService,
     RecommendationComputeService,
