@@ -13,6 +13,8 @@ import { StoriesService } from './stories.service';
 import { GatekeeperModule } from '../gatekeeper/gatekeeper.module';
 import { AuthModule } from '../authentication/auth.module';
 import { MiddlewaresModule } from '../shared/middlewares/middlewares.module';
+import { RecommendationModule } from '../recommendation/recommendation.module';
+import { RedisCacheInterceptor } from '../shared/interceptors/redis-cache.interceptor';
 import {
   StoryContent,
   StoryContentSchema,
@@ -35,9 +37,10 @@ import { RequestMethod } from '@nestjs/common';
     MiddlewaresModule,
     GatekeeperModule,
     AuthModule,
+    RecommendationModule,
   ],
   controllers: [StoriesController],
-  providers: [StoriesService],
+  providers: [StoriesService, RedisCacheInterceptor],
   exports: [StoriesService],
 })
 export class StoriesModule implements NestModule {

@@ -8,7 +8,19 @@ export class MongoLoggerService implements OnModuleInit {
 
   constructor(@InjectConnection('blog') private readonly connection: Connection) {}
 
-  onModuleInit() {
+  async onModuleInit() {
+    // Check if connection is available (might fail gracefully)
+    try {
+      if (this.connection.readyState === 1) {
+        this.logger.log('✅ MongoDB connection established successfully');
+        this.logger.log(`   Host: ${this.connection.host}`);
+        this.logger.log(`   Port: ${this.connection.port}`);
+        this.logger.log(`   Database: ${this.connection.name}`);
+      }
+    } catch (error) {
+      this.logger.warn('⚠️  MongoDB connection not available - app will use fallback modes');
+    }
+
     // Log when MongoDB connects
     this.connection.on('connected', () => {
       this.logger.log('✅ MongoDB connection established successfully');

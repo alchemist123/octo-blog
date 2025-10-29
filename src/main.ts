@@ -125,9 +125,16 @@ async function bootstrap() {
   
   SwaggerModule.setup('api', app, document);
 
+  // Wait a moment for all connections to initialize
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
-  console.log(`Swagger documentation available at: http://localhost:${port}/api`);
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log(`🚀 Application is running on: http://localhost:${port}`);
+  console.log(`📚 Swagger documentation: http://localhost:${port}/api`);
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('');
 }
 
 // Only run bootstrap in development

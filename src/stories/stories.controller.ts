@@ -11,9 +11,12 @@ import {
   HttpException,
   UseGuards,
   Req,
+  UseInterceptors,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { StoriesService } from './stories.service';
+import { RecommendationService } from '../recommendation/recommendation.service';
+import { RedisCacheInterceptor } from '../shared/interceptors/redis-cache.interceptor';
 import { CreateStoryDto } from './dto/create-story.dto';
 import { UpdateStoryDto } from './dto/update-story.dto';
 import { FilterStoryDto } from './dto/filter-story.dto';
@@ -37,7 +40,10 @@ import {
 @ApiSecurity('x-access-token')
 @Controller('stories')
 export class StoriesController {
-  constructor(private readonly storiesService: StoriesService) {}
+  constructor(
+    private readonly storiesService: StoriesService,
+    private readonly recommendationService: RecommendationService,
+  ) {}
 
   /**
    * Create a new story
@@ -455,6 +461,35 @@ export class StoriesController {
       size: Number(size) || 10,
     };
   }
+
+  /**
+   * Get personalized feed
+   */
+  @Get('feed')
+  @Throttle({ medium: { ttl: 10000, limit: 30 } })
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(RedisCacheInterceptor)
+  @ApiOperation({ summary: 'Get personalized feed of stories' })
+  @ApiOkResponse({ description: 'Returns personalized feed with recommendations' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  async getPersonalizedFeed(
+    @Req() request: any,
+    @Query('page') page = '1',
+    @Query('size') size = '20',
+  ): Promise<{ stories: any[]; total: number; page: number; size: number }> {
+    const user = request.user;
+    const result = await this.recommendationService.getPersonalizedFeed(
+      user.id,
+      Number(page) || 1,
+      Number(size) || 20,
+    );
+    return {
+      ...result,
+      page: Number(page) || 1,
+      size: Number(size) || 20,
+    };
+  }
+
   /**
    * Like/unlike a comment
    */
@@ -520,6 +555,7 @@ export class StoriesController {
     await this.storiesService.deleteStoryBlock(blockId, user.id);
     return { message: 'Story block deleted successfully' };
   }
+  
   
 }
 
