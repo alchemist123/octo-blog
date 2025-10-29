@@ -3,9 +3,9 @@
 module.exports = {
   async up(queryInterface, Sequelize) {
     // Drop the comments table
-    await queryInterface.dropTable(
-      { tableName: "comments", schema: "storie" }
-    );
+    // await queryInterface.dropTable(
+    //   { tableName: "comments", schema: "storie" }
+    // );
   },
 
   async down(queryInterface, Sequelize) {

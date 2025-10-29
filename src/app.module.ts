@@ -26,9 +26,12 @@ import { DatabaseModule } from './shared/database/database.module';
       useFactory: async (configService: ConfigService) => {
         const mongodbUri = configService.get<string>('MONGODB_URI');
         
+        // Check if running in Docker by looking at the connection string
+        const isDocker = process.env.MONGODB_URI?.includes('mongodb:') || process.env.DOCKER === 'true';
+        
         // Use local MongoDB URI if running locally
-        const defaultUri = process.env.NODE_ENV === 'production' || process.env.DOCKER
-          ? configService.get<string>('MONGODB_URI') || 'mongodb://mongouser:mongopass123@mongodb:27017/blog?authSource=admin'
+        const defaultUri = isDocker
+          ? 'mongodb://mongouser:mongopass123@mongodb:27017/blog?authSource=admin'
           : 'mongodb://mongouser:mongopass123@localhost:27017/blog?authSource=admin';
         
         return {

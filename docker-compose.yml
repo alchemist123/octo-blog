@@ -49,7 +49,7 @@ services:
       POSTGRES_USERNAME: postgres
       POSTGRES_PASSWORD: postgres123
       POSTGRES_DATABASE: blog
-      MONGODB_URI: mongodb://mongouser:mongopass123@localhost:27017/blog?authSource=admin
+      MONGODB_URI: mongodb://mongouser:mongopass123@mongodb:27017/blog?authSource=admin
       JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
     depends_on:
       - postgres
