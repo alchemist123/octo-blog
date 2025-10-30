@@ -181,6 +181,93 @@ export class RecommendationService {
   }
 
   /**
+   * Grouped feed for UI: trending, interest1, interest2, other
+   * Pulls stories from MongoDB aggregates and caches results.
+   */
+  async getGroupedFeed(userId?: string): Promise<any> {
+    const cacheKey = userId ? `groupedFeed:${userId}` : `groupedFeed:anonymous`;
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      return cached as any;
+    }
+
+    // Determine user interests
+    let interests: string[] = [];
+    if (userId) {
+      const user = await this.userModel.findByPk(userId, {
+        attributes: ['id', 'interests'],
+      });
+      interests = (user?.interests as string[]) || [];
+    }
+
+    if (!interests || interests.length === 0) {
+      // Fallback interests if unauthenticated or none set
+      const fallback = ['tech', 'javascript', 'ai', 'design', 'startup', 'python', 'cloud', 'db', 'devops', 'security'];
+      // pick random 5
+      const shuffled = [...fallback].sort(() => Math.random() - 0.5);
+      interests = shuffled.slice(0, 5);
+    }
+
+    // Trending: top 5 by engagement score (Mongo only)
+    const trendingDocs = await this.storyAggregateModel
+      .find({ status: 'published' as any })
+      .sort({
+        // approximate engagement sorting
+        likesCount: -1,
+        commentsCount: -1,
+        viewsCount: -1,
+        createdAt: -1,
+      })
+      .limit(20) // fetch more to post-filter
+      .exec();
+
+    const trending = trendingDocs
+      .map((d: any) => d.toJSON())
+      .slice(0, 5);
+
+    // Build interest buckets keyed by actual interest names (max 5 interests)
+    const selectedInterests = interests.slice(0, 5);
+    const interestBuckets: Record<string, any[]> = {};
+    for (const interest of selectedInterests) {
+      const iq: any = {
+        status: 'published',
+        $or: [
+          { hashtags: { $in: [interest] } },
+          { title: { $regex: interest, $options: 'i' } },
+          { tagLine: { $regex: interest, $options: 'i' } },
+        ],
+      };
+      const docs = await this.storyAggregateModel
+        .find(iq)
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .exec();
+      interestBuckets[interest] = docs.map((d: any) => d.toJSON()).slice(0, 5);
+    }
+
+    // Other: random stories excluding already selected ids
+    const pickedIds = new Set<string>([
+      ...trending.map((s: any) => s.storyId),
+      ...Object.values(interestBuckets).flat().map((s: any) => s.storyId),
+    ]);
+
+    // Use aggregation with $match + $sample for randomness
+    const otherAgg = await (this.storyAggregateModel as any).aggregate([
+      { $match: { status: 'published', storyId: { $nin: Array.from(pickedIds) } } },
+      { $sample: { size: 5 } },
+    ]);
+
+    const other = otherAgg as any[];
+
+    const result: any = { trending, other, ...interestBuckets };
+
+    // Cache: user-specific for 5 minutes; anonymous shared for 5 minutes
+    await this.cacheManager.set(cacheKey, result, 300);
+
+    return result;
+  }
+
+  /**
    * Compute feed in real-time (fallback)
    */
   private async computeFeedRealTime(

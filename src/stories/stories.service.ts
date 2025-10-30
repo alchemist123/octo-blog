@@ -15,6 +15,7 @@ import { User } from '../shared/models/User';
 import { Mushroom } from '../shared/models/Mushroom';
 import { MushroomAdmin } from '../shared/models/MushroomAdmin';
 import { SavedStory } from '../shared/models/SavedStory';
+import { UserStoryView } from '../shared/models/UserStoryView';
 import { CreateStoryDto } from './dto/create-story.dto';
 import { UpdateStoryDto } from './dto/update-story.dto';
 import { FilterStoryDto } from './dto/filter-story.dto';
@@ -43,6 +44,7 @@ export class StoriesService {
     @InjectModel(User) private readonly userModel: typeof User,
     @InjectModel(Mushroom) private readonly mushroomModel: typeof Mushroom,
     @InjectModel(MushroomAdmin) private readonly mushroomAdminModel: typeof MushroomAdmin,
+    @InjectModel(UserStoryView) private readonly userStoryViewModel: typeof UserStoryView,
     @InjectMongooseModel('StoryContent', 'blog')
     private readonly storyContentModel: Model<StoryContent>,
     @InjectMongooseModel('Comment', 'blog')
@@ -697,6 +699,50 @@ export class StoriesService {
   }
 
   /**
+   * Get user's recently viewed stories (ordered by lastViewedAt desc)
+   */
+  async getMyRecentlyViewed(
+    userId: string,
+    page = 1,
+    size = 10,
+  ): Promise<{ stories: any[]; total: number }> {
+    const limit = Math.max(1, Math.min(50, Number(size)));
+    const offset = (Math.max(1, Number(page)) - 1) * limit;
+
+    const { rows, count } = await this.userStoryViewModel.findAndCountAll({
+      where: { userId },
+      attributes: ['storyId', 'lastViewedAt', 'viewCount'],
+      order: [['lastViewedAt', 'DESC']],
+      limit,
+      offset,
+    });
+
+    const storyIds = rows.map((r: any) => r.storyId);
+    if (storyIds.length === 0) {
+      return { stories: [], total: count };
+    }
+
+    // Fetch story aggregates from MongoDB
+    const aggregates = await this.storyAggregateModel.find({ storyId: { $in: storyIds } });
+    const aggById = new Map<string, any>(aggregates.map((a: any) => [a.storyId, a.toJSON()]));
+
+    // Preserve order and attach view metadata
+    const stories = rows
+      .map((r: any) => {
+        const agg = aggById.get(r.storyId);
+        if (!agg) return null;
+        return {
+          ...agg,
+          lastViewedAt: r.lastViewedAt,
+          viewCount: r.viewCount,
+        };
+      })
+      .filter(Boolean) as any[];
+
+    return { stories, total: count };
+  }
+
+  /**
    * Add a content block to a story
    */
   async addStoryBlock(
@@ -813,6 +859,44 @@ export class StoriesService {
       blocks: blocks.map((block) => block.toJSON()),
       total,
     };
+  }
+
+  /**
+   * Track a story view for a user on first-page access, capping at 50 per user per story
+   */
+  async trackStoryViewOnFirstPage(storyId: string, userId: string, page: number): Promise<void> {
+    if (!storyId || !userId) return;
+    if (Number(page) !== 1) return;
+
+    // Ensure story exists
+    const story = await this.storyModel.findByPk(storyId);
+    if (!story) {
+      throw new HttpException('Story not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Find or create the view row
+    const [viewRow] = await this.userStoryViewModel.findOrCreate({
+      where: { storyId, userId },
+      defaults: { storyId, userId, viewCount: 0, lastViewedAt: new Date() } as any,
+    });
+
+    if (viewRow.viewCount >= 50) {
+      return; // cap reached, do not increment Mongo count either
+    }
+
+    // Increment counters
+    await viewRow.update({
+      viewCount: viewRow.viewCount + 1,
+      lastViewedAt: new Date(),
+    });
+
+    // Increment Mongo aggregate viewsCount by 1
+    await this.storyAggregateModel.findOneAndUpdate(
+      { storyId },
+      { $inc: { viewsCount: 1 } },
+      { upsert: true },
+    );
+
   }
 
   /**

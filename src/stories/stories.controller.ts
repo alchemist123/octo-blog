@@ -211,6 +211,11 @@ export class StoriesController {
 
     const { limit, offset, page, size } = pagination;
 
+      const user = request.user;
+      if (user && user.id && Number(page) === 1) {
+        await this.storiesService.trackStoryViewOnFirstPage(storyId, user.id, page);
+      }
+
     const result = await this.storiesService.getStoryBlocks(storyId, limit, offset);
 
     return {
@@ -465,6 +470,29 @@ export class StoriesController {
   }
 
   /**
+   * Get recent viewed stories (requires token)
+   */
+  @Get('recent-views')
+  @Throttle({ medium: { ttl: 10000, limit: 30 } })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get recently viewed stories for the authenticated user' })
+  @ApiOkResponse({ description: 'Returns paginated recently viewed stories' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  async getMyRecentViews(
+    @Req() request: any,
+    @Query('page') page = '1',
+    @Query('size') size = '10',
+  ): Promise<{ stories: any[]; total: number; page: number; size: number }> {
+    const user = request.user;
+    const result = await this.storiesService.getMyRecentlyViewed(user.id, Number(page), Number(size));
+    return {
+      ...result,
+      page: Number(page) || 1,
+      size: Number(size) || 10,
+    };
+  }
+
+  /**
    * Get feed - personalized if authenticated, random if not
    */
   @Get('feed')
@@ -475,38 +503,13 @@ export class StoriesController {
     summary: 'Get feed of stories',
     description: 'Returns personalized feed if authenticated, otherwise returns random feed. Token is optional.'
   })
-  @ApiOkResponse({ description: 'Returns feed with stories' })
+  @ApiOkResponse({ description: 'Returns grouped feed: trending, dynamic interest keys, other' })
   async getFeed(
     @Req() request: any,
-    @Query('page') page = '1',
-    @Query('size') size = '20',
-  ): Promise<{ stories: any[]; total: number; page: number; size: number }> {
+  ): Promise<any> {
     const user = request.user;
-    
-    // If user is authenticated, return personalized feed
-    if (user && user.id) {
-      const result = await this.recommendationService.getPersonalizedFeed(
-        user.id,
-        Number(page) || 1,
-        Number(size) || 20,
-      );
-      return {
-        ...result,
-        page: Number(page) || 1,
-        size: Number(size) || 20,
-      };
-    }
-    
-    // Otherwise, return random feed
-    const result = await this.recommendationService.getRandomFeed(
-      Number(page) || 1,
-      Number(size) || 20,
-    );
-    return {
-      ...result,
-      page: Number(page) || 1,
-      size: Number(size) || 20,
-    };
+    const result = await this.recommendationService.getGroupedFeed(user?.id);
+    return result;
   }
 
   /**
