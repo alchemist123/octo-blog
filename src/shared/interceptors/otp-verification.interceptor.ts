@@ -18,6 +18,14 @@ export class OtpVerificationInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const body = request.body;
 
+    // Check if body exists
+    if (!body) {
+      throw new HttpException(
+        'Request body is required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     // Extract OTP details from request
     const { email, otpCode, type } = body;
 

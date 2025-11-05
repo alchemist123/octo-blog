@@ -8,6 +8,7 @@ import { PaginationMiddleware } from '../shared/middlewares/pagination.middlewar
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { GatekeeperModule } from '../gatekeeper/gatekeeper.module';
+import { UserProfileCacheInterceptor } from '../shared/interceptors/user-profile-cache.interceptor';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { GatekeeperModule } from '../gatekeeper/gatekeeper.module';
     GatekeeperModule,
   ],
   controllers: [UserController],
-  providers: [UserService],
+  providers: [UserService, UserProfileCacheInterceptor],
   exports: [UserService],
 })
 export class UserModule implements NestModule {

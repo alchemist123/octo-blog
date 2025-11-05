@@ -7,6 +7,7 @@ import {
   Req,
   UseGuards,
   UseInterceptors,
+  NotFoundException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
@@ -134,14 +135,23 @@ export class AuthController {
 
   // OTP Endpoints
   @Post('/generate-otp')
-  // @Throttle({ short: { ttl: 60000, limit: 3 } }) // 3 OTP requests per minute
+  @Throttle({ short: { ttl: 60000, limit: 3 } }) // 3 OTP requests per minute
   @ApiOperation({ summary: 'Generate OTP for email verification (Rate: 3 per minute)' })
   @ApiResponse({ status: 200, description: 'OTP generated successfully' })
   @ApiResponse({ status: 400, description: 'Invalid request' })
+  @ApiResponse({ status: 404, description: 'User not found (for login type)' })
   @ApiResponse({ status: 429, description: 'Too many OTP requests' })
   @ApiBody({ type: GenerateOtpDto })
   async generateOtp(@Body() body: GenerateOtpDto, @Res() res: any) {
     try {
+      // Check if user exists when type is login
+      if (body.type === 'login') {
+        const user = await this.authService.validateUserByEmail(body.email);
+        if (!user) {
+          throw new NotFoundException('User not found');
+        }
+      }
+
       const otpCode = await this.otpService.generateOtp(body.email, body.type as any);
       
       // In production, send OTP via email/SMS

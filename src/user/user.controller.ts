@@ -10,6 +10,7 @@ import {
   UseGuards,
   Req,
   Param,
+  UseInterceptors,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { UserService } from './user.service';
@@ -17,6 +18,8 @@ import { CheckExistDto } from './dto/check-exist.dto';
 import { AddInterestDto } from './dto/add-interest.dto';
 import { SubscribeUserDto } from './dto/subscribe-user.dto';
 import { JwtAuthGuard } from '../authentication/guards/jwt.guard';
+import { OptionalJwtAuthGuard } from '../authentication/guards/optional-jwt.guard';
+import { UserProfileCacheInterceptor } from '../shared/interceptors/user-profile-cache.interceptor';
 import {
   ApiOperation,
   ApiOkResponse,
@@ -27,6 +30,7 @@ import {
   ApiTags,
   ApiSecurity,
   ApiCreatedResponse,
+  ApiQuery,
 } from '@nestjs/swagger';
 
 @ApiTags('user')
@@ -37,8 +41,51 @@ export class UserController {
 
   @Get()
   @Throttle({ medium: { ttl: 10000, limit: 10 } }) // 10 requests per 10 seconds
-  getUser(): string {
-    return 'hello world';
+  @UseGuards(OptionalJwtAuthGuard)
+  @UseInterceptors(UserProfileCacheInterceptor)
+  @ApiQuery({ name: 'userId', required: false, description: 'User ID to fetch profile for. If not provided, returns the authenticated user\'s profile.' })
+  @ApiOperation({ 
+    summary: 'Get user profile',
+    description: 'If token is provided, returns that token user\'s profile. If userId is provided in query, returns that user\'s profile. At least one of token or userId must be provided.'
+  })
+  @ApiOkResponse({ 
+    description: 'User profile fetched successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+        userName: { type: 'string' },
+        email: { type: 'string' },
+        dp_url: { type: 'string' },
+        bio: { type: 'string' },
+        location: { type: 'string' },
+        personal_website: { type: 'array' },
+        interests: { type: 'array', items: { type: 'string' } },
+        subscribersCount: { type: 'number' },
+        postsCount: { type: 'number' },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiBadRequestResponse({ description: 'Either token or userId must be provided' })
+  async getUser(
+    @Req() request: any,
+    @Query('userId') userId?: string,
+  ): Promise<any> {
+    const targetUserId = userId || request.user.id;
+    
+    if (!targetUserId) {
+      throw new HttpException(
+        'Either token or userId must be provided',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    
+    const profile = await this.userService.getUserProfile(targetUserId);
+    return profile;
   }
 
   @Get('check-exist')

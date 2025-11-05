@@ -5,7 +5,7 @@
         "database": "blog",
         "host": "localhost",
         "dialect": "postgres",
-        "port": 5432,
+        "port": 5433,
         "logging": false,
         "pool": {
           "max": 5,

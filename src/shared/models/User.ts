@@ -67,4 +67,9 @@ export class User extends Model<User> {
   @Default(0)
   @Column(DataType.INTEGER)
   declare subscribersCount: number; // Count of users subscribed to this user
+
+  @AllowNull(false)
+  @Default(0)
+  @Column(DataType.INTEGER)
+  declare postsCount: number; // Count of posts/stories created by this user
 }

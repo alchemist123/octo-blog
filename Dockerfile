@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -13,6 +13,9 @@ COPY . .
 
 # Build the application
 RUN npm run build
+
+# Install sequelize-cli globally for migrations (needed in production)
+RUN npm install -g sequelize-cli
 
 # Remove dev dependencies after build
 RUN npm prune --production

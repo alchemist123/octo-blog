@@ -145,6 +145,9 @@ export class StoriesService {
         sentimentalScore: story.sentimentalScore ?? 0,
       });
 
+      // Increment postsCount for the user
+      await this.incrementUserPostsCount(user.id);
+
       return { ...story.toJSON(), mongoStory: mongoStory.toJSON() };
     } catch (mongoError) {
       console.error('MongoDB creation error:', mongoError);
@@ -349,8 +352,14 @@ export class StoriesService {
       );
     }
 
+    // Store authorId before deletion
+    const authorId = story.authorId;
+
     // Delete from PostgreSQL
     await story.destroy();
+
+    // Decrement postsCount for the user
+    await this.decrementUserPostsCount(authorId);
 
     // Delete from MongoDB
     await this.storyContentModel.deleteOne({ storyId: id });
@@ -1039,6 +1048,28 @@ export class StoriesService {
     );
 
     return story;
+  }
+
+  /**
+   * Increment postsCount for a user
+   */
+  private async incrementUserPostsCount(userId: string): Promise<void> {
+    const user = await this.userModel.findByPk(userId);
+    if (user) {
+      const newCount = Math.max(0, (user.postsCount || 0) + 1);
+      await user.update({ postsCount: newCount });
+    }
+  }
+
+  /**
+   * Decrement postsCount for a user
+   */
+  private async decrementUserPostsCount(userId: string): Promise<void> {
+    const user = await this.userModel.findByPk(userId);
+    if (user) {
+      const newCount = Math.max(0, (user.postsCount || 0) - 1);
+      await user.update({ postsCount: newCount });
+    }
   }
 }
 

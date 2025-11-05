@@ -28,7 +28,7 @@ services:
       PGADMIN_DEFAULT_PASSWORD: admin123
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
-      - "5050:5050"
+      - "5050:80"
     depends_on:
       - postgres
     networks:
@@ -49,11 +49,14 @@ services:
       POSTGRES_USERNAME: postgres
       POSTGRES_PASSWORD: postgres123
       POSTGRES_DATABASE: blog
-      MONGODB_URI: mongodb://mongouser:mongopass123@localhost:27017/blog?authSource=admin
+      MONGODB_URI: mongodb://mongouser:mongopass123@mongodb:27017/blog?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
     depends_on:
       - postgres
       - mongodb
+      - redis
     networks:
       - blog-network
     volumes:
