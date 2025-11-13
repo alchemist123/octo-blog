@@ -759,6 +759,14 @@ export class StoriesService {
     userId: string,
     createBlockDto: CreateStoryBlockDto,
   ): Promise<any> {
+    // Validate that storyId in body matches URL parameter
+    if (createBlockDto.storyId !== storyId) {
+      throw new HttpException(
+        'Story ID in body must match URL parameter',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     // Verify story exists and user owns it
     const story = await this.storyModel.findByPk(storyId);
     if (!story) {
@@ -783,7 +791,7 @@ export class StoriesService {
 
     // Create the block
     const block = await this.storyBlockModel.create({
-      storyId,
+      storyId: createBlockDto.storyId,
       orderNo: createBlockDto.orderNo,
       authorId: userId,
       authorDetails: {

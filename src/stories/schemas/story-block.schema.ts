@@ -40,8 +40,8 @@ export class StoryBlock extends Document {
   })
   type: 'text' | 'video_url' | 'image' | 'html' | 'footer';
 
-  @Prop({ type: String, required: true })
-  content: string;
+  @Prop({ type: Object, required: true })
+  content: Record<string, any>;
 }
 
 export const StoryBlockSchema = SchemaFactory.createForClass(StoryBlock);

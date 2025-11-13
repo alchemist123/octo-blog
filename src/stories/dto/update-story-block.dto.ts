@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsObject } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateStoryBlockDto {
@@ -10,8 +10,12 @@ export class UpdateStoryBlockDto {
   @IsEnum(['text', 'video_url', 'image', 'html', 'footer'])
   type?: 'text' | 'video_url' | 'image' | 'html' | 'footer';
 
-  @ApiPropertyOptional({ description: 'Content of the block' })
+  @ApiPropertyOptional({ 
+    description: 'Content of the block as a JSON object',
+    example: { text: 'Hello', format: 'plain' },
+    type: Object
+  })
   @IsOptional()
-  @IsString()
-  content?: string;
+  @IsObject()
+  content?: Record<string, any>;
 }
